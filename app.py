@@ -3,15 +3,42 @@ from flask_cors import CORS  # Importando o CORS
 import ollama
 import service
 from model.usuario import user
+import Fase2
 import Fase3
+
 app = Flask(__name__)
 CORS(app)  # Habilitando CORS para todas as rotas
 
 
-user_sessions = {}
+# Bernardo, estou optando por usar o user_session para guardar os dados da Fase 2 e da Fase 3.
+# Isso vai facilitar para exportar só o que é importante mais tarde para a fase 4.
+user_sessions = {} # Dicionario.
+user_model = {
+    # fase 1
+    "nome":                               "",
+    "idade":                              16,
+    "etc":                          "asfasf",
+    # fase 2
+    "perfilComportamental":               "", # Resultado, em texto, da avaliacao MBTI/Profiler
+    "avaliacaoFase2":                     "", # Resultado em texto da avaliação total MBTI + Analise Sentimento
+    "fase2_current_question_index":        0,
+    "fase2_scores":      Fase2.scores.copy(),
+    "fase2_questions_completed":       False,
+    # fase 3
+    "current_question":                    0, # Trackeia qual questão estamos na fase 3
+    "score":                               0, # Pontuação total?
+    "questions":                          [], # Lista de questoes que foram perguntadas.
+    "answers":                            [], # Lista de respostas dadas pelo usuario.
+    "correction":                         []  # 'Correcao'/Opiniao da IA sobre a resposta para a pergunta.  
+}
+
+# Funcao para adicionar ID ao user_sessions se não existir
+def newSessionID(idCandidato):
+    if idCandidato not in user_sessions:
+        user_sessions[idCandidato] = user_model.copy()
 
 
-
+# Fase 1
 @app.route('/Fase1', methods=['POST'])
 def Fase1():
     try:
@@ -40,7 +67,45 @@ def Valida():
         return jsonify({'response': "Obrigado!" })
     except Exception as e:
         return jsonify({'error': f'Erro ao gerar resposta: {str(e)}'}), 500
-@app.route('/Ask', methods=['POST'])
+    
+# Fase 2
+@app.route('/Fase2Ask', methods=['POST'])
+def Fase2Ask():
+    try:
+        data = request.json
+        user_id = data.get("cpf")
+        question = Fase2.nextQuestion()
+        
+        return jsonify({'response': question})
+    except Exception as e:
+        return jsonify({'error': f'Error generating MBTI question: {str(e)}'}), 500
+
+@app.route('/Fase2Answer', methods=['POST'])
+def Fase2Answer():
+    try:
+        data = request.json
+        user_id = data.get("cpf")
+        response = int(data.get("resposta"))
+
+        if user_id not in user_sessions or user_sessions[user_id].get("fase2_questions_completed"):
+            return jsonify({'error': 'Session not found or phase 2 already completed'}), 400
+
+        Fase2.grabResposta(response)
+
+        question = Fase2.nextQuestion()
+
+        if question == "All questions completed.":
+            result = Fase2.getResultado()
+            user_sessions[user_id]["perfilComportamental"] = result
+            user_sessions[user_id]["fase2_questions_completed"] = True
+            return jsonify({'response': 'Phase 2 completed', 'perfilComportamental': result, 'final': True})
+
+        return jsonify({'response': question})
+    except Exception as e:
+        return jsonify({'error': f'Error processing MBTI answer: {str(e)}'}), 500
+
+# Fase 3
+@app.route('/Fase3Ask', methods=['POST'])
 def Pergunta():
     try:
         data = request.json
@@ -63,7 +128,7 @@ def Pergunta():
     except Exception as e:
         return jsonify({'error': f'Erro ao gerar resposta: {str(e)}'}), 500
 
-@app.route('/Answer', methods=['POST'])
+@app.route('/Fase3Answer', methods=['POST'])
 def Resposta():
     try:
         data = request.json

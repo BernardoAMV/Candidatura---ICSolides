@@ -39,94 +39,104 @@ scores = {
     "JP": 0   # Julgamento (J) vs. Percepção (P)
 }
 
-# Administramos o teste, e iteramos por cada categoria de perguntas.
-for dimension, dimension_questions in questions.items():
-    print(f"Responda as seguintes perguntas para {dimension}:")
-    for i, question in enumerate(dimension_questions):
-        print(f"Q{i+1}: {question} (1-5)")
-        response = int(input("Avalie sua concordância em uma escala de 1 (Discordo Fortemente) a 5 (Concordo Fortemente): "))
+dimensionGrab = 0
+iGrab= 0
 
-        if response >= 4: 
-            if i % 2 == 0: # basicamente, perguntas de numero par reforçam um perfil (extroversão)
-                scores[dimension] += 1
-            else:          # e perguntas de numero impar reforçam o anti-perfil (introversão)
-                scores[dimension] -= 1
+# Retorna questoes de forma lazy
+def nextQuestion():
+    global dimensionGrab, iGrab
 
-# calcular os percentuais, fonte: 16personalities
-results = {
-    "Extroversão (E)": max(0, scores["EI"] / len(questions["EI"]) * 100),
-    "Introversão (I)": max(0, (-scores["EI"]) / len(questions["EI"]) * 100),
-    "Sensação (S)": max(0, scores["SN"] / len(questions["SN"]) * 100),
-    "Intuição (N)": max(0, (-scores["SN"]) / len(questions["SN"]) * 100),
-    "Pensamento (T)": max(0, scores["TF"] / len(questions["TF"]) * 100),
-    "Sentimento (F)": max(0, (-scores["TF"]) / len(questions["TF"]) * 100),
-    "Julgamento (J)": max(0, scores["JP"] / len(questions["JP"]) * 100),
-    "Percepção (P)": max(0, (-scores["JP"]) / len(questions["JP"]) * 100)
-}
+    question_dimensions = list(questions.items())
+    if dimensionGrab < len(question_dimensions):
+        dimension_key, dimension_questions = question_dimensions[dimensionGrab]
+        if iGrab < len(dimension_questions):
+            question = dimension_questions[iGrab]
+            output = f"Q{iGrab+1}: {question} (1-5)"
+            iGrab += 1
+            return output
+        else:
+            dimensionGrab += 1
+            iGrab = 0
+            return nextQuestion()
+    else:
+        return "All questions completed."
+    
+def grabResposta(response):
+    if response >= 4: 
+        if iGrab % 2 == 0: # basicamente, perguntas de numero par reforçam um perfil (extroversão)
+            scores[dimensionGrab] += 1
+        else:          # e perguntas de numero impar reforçam o anti-perfil (introversão)
+            scores[dimensionGrab] -= 1
 
-# mostrar o resultado em percentuais
-print("\nResultados do MBTI (em percentuais):")
-for trait, percentage in results.items():
-    print(f"{trait}: {percentage:.2f}%")
+def getResultado():
 
-mbti_profile = ", ".join([f"{trait}: {percentage:.2f}%" for trait, percentage in results.items()])
-'''prompt = f"Analise o seguinte perfil MBTI com base nos percentuais: {mbti_profile}. Forneça insights sobre os traços de personalidade."
+    # calcular os percentuais, fonte: 16personalities
+    results = {
+        "Extroversão (E)": max(0, scores["EI"] / len(questions["EI"]) * 100),
+        "Introversão (I)": max(0, (-scores["EI"]) / len(questions["EI"]) * 100),
+        "Sensação (S)": max(0, scores["SN"] / len(questions["SN"]) * 100),
+        "Intuição (N)": max(0, (-scores["SN"]) / len(questions["SN"]) * 100),
+        "Pensamento (T)": max(0, scores["TF"] / len(questions["TF"]) * 100),
+        "Sentimento (F)": max(0, (-scores["TF"]) / len(questions["TF"]) * 100),
+        "Julgamento (J)": max(0, scores["JP"] / len(questions["JP"]) * 100),
+        "Percepção (P)": max(0, (-scores["JP"]) / len(questions["JP"]) * 100)
+    }
 
-stream = ollama.chat(
-    model='llama3.2',
-    messages=[{'role': 'user', 'content': prompt}],
-    stream=True,
-)
+    # mostrar o resultado em percentuais
+    print("\nResultados do MBTI (em percentuais):")
+    resultadoMBTI = ""
+    for trait, percentage in results.items():
+        resultadoMBTI += f"{trait}: {percentage:.2f}%"
+    mbti_profile = ", ".join([f"{trait}: {percentage:.2f}%" for trait, percentage in results.items()])
+    return mbti_profile
 
-print("\nAnálise Ollama do Perfil MBTI:")
-for chunk in stream:
-    print(chunk['message']['content'], end='', flush=True)
-'''
+def transcreveTexto(pathDoVideo):
+    model = whisper.load_model("base") 
+    result = model.transcribe(pathDoVideo)
+    transcribed_text = result["text"]
+    return transcribed_text
 
-model = whisper.load_model("base") 
-result = model.transcribe("C:/Users/PoderosoVitao/Downloads/UNSORTED/impossivel.mp3") # Depende de onde o úsuario enviou.
-transcribed_text = result["text"]
-#print("\nTranscricao: ", transcribed_text)
+def extraiEmocao(textoTranscrito):
+    stream = ollama.chat(
+        model='llama3.2',
+        messages=[{'role': 'user', 'content': ("Analise o sentimento do seguinte texto: " + textoTranscrito)}],
+        stream=True,
+    )
+    #print("\nAnálise de Sentimento:")
+    sentiment_analysis = ""
+    for chunk in stream:
+        sentiment_analysis += chunk['message']['content']
+    #print(sentiment_analysis)
+    return sentiment_analysis
 
-stream = ollama.chat(
-    model='llama3.2',
-    messages=[{'role': 'user', 'content': ("Analise o sentimento do seguinte texto: " + transcribed_text)}],
-    stream=True,
-)
 
-#print("\nAnálise de Sentimento:")
-sentiment_analysis = ""
-for chunk in stream:
-    sentiment_analysis += chunk['message']['content']
-#print(sentiment_analysis)
+def gerarScoreEAvaliacao(testeMBTI, textoTranscrito, analiseSentimento):
+    final_prompt = f"""
+    Forneça uma breve análise do perfil cultural do candidato com base nos seguintes resultados:
+    1. Perfil MBTI (percentuais):
+    {testeMBTI}
+    2. Transcrição da Entrevista:
+    {textoTranscrito}
+    3. Análise de Sentimento:
+    {analiseSentimento}
 
-final_prompt = f"""
-Forneça uma breve análise do perfil cultural do candidato com base nos seguintes resultados:
+    Leve em conta o perfil comportamental e o tom utilizado durante a entrevista para fornecer insights sobre o estilo de trabalho e adaptação cultural deste candidato.
+    """
 
-1. Perfil MBTI (percentuais):
-{mbti_profile}
+    stream = ollama.chat(
+        model='llama3.2',
+        messages=[{'role': 'user', 'content': final_prompt}],
+        stream=True,
+    )
 
-2. Transcrição da Entrevista:
-{transcribed_text}
+    # Análise do perfil cultural. Ultima etapa da fase 2.
+    print("\nAnálise Final do Perfil Cultural:")
 
-3. Análise de Sentimento:
-{sentiment_analysis}
+    mensagemFinal = ""
 
-Leve em conta o perfil comportamental e o tom utilizado durante a entrevista para fornecer insights sobre o estilo de trabalho e adaptação cultural deste candidato.
-"""
+    for chunk in stream:
+        mensagemFinal += chunk['message']['content']
+    # Agora basta passar a mensagemFinal para o recrutador, ou implementar uma heuristica para dar uma nota a essa avaliação.
+    return mensagemFinal
 
-stream = ollama.chat(
-    model='llama3.2',
-    messages=[{'role': 'user', 'content': final_prompt}],
-    stream=True,
-)
 
-# Análise do perfil cultural. Ultima etapa da fase 2.
-print("\nAnálise Final do Perfil Cultural:")
-
-mensagemFinal = ""
-
-for chunk in stream:
-    mensagemFinal += chunk['message']['content']
-
-# Agora basta passar a mensagemFinal para o recrutador, ou implementar uma heuristica para dar uma nota a essa avaliação.
