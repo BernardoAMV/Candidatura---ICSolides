@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ollama Chat</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+        }
+        textarea {
+            width: 100%;
+            height: 100px;
+            padding: 10px;
+            margin-top: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+        button {
+            margin-top: 10px;
+            padding: 10px 20px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        #response {
+            margin-top: 20px;
+            padding: 10px;
+            background-color: #f9f9f9;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+        #chatHistory {
+            margin-top: 20px;
+            padding: 10px;
+            background-color: #f1f1f1;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .message {
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Chat com o Ollama</h1>
+        <div id="chatHistory">
+            <div class="message"><strong>Ollama:</strong> Olá! Por favor entre com seu CPF para autenticação.</div>
+        </div>
+        <textarea id="message" placeholder="Digite sua pergunta..."></textarea>
+        <button onclick="sendMessage()">Enviar</button>
+
+        <div id="response"></div>
+    </div>
+
+    <script>
+        const chatHistory = document.getElementById('chatHistory');
+
+        let fase = 1;  // Variável para controlar as fases do fluxo
+let user = {}; // Objeto para armazenar as informações do usuário
+
+async function sendMessage() {
+    const userMessage = document.getElementById('message').value;
+    console.log("chamou fase:"  + fase);
+    // Adiciona a mensagem do usuário ao histórico de chat
+    addMessageToChat('Você', userMessage);
+    document.getElementById('message').value = ''; // Limpa a textarea
+
+    if (fase === 1) {
+        // Validação de CPF
+        const response = await fetch("http://localhost:5000/Fase1", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({ message: userMessage })
+        });
+
+        if (!response.ok) {
+            console.error("Erro:", response.statusText);
+            return;
+        }
+
+        const data = await response.json();
+        if (data.response === "Usuário não encontrado!") {
+            addMessageToChat('Ollama', data.response + " Por favor, entre com seu CPF novamente, inclua traços (-) e ponto (.)");
+        } else {
+            addMessageToChat('Ollama', data.response);
+            user.cpf = userMessage;  
+            fase++;  
+            addMessageToChat('Ollama', "Me passe seu nome por favor.");
+        }
+    } else if (fase === 2) {
+        // Coleta de nome
+        if (!user.name) {
+            user.name = userMessage;
+            addMessageToChat('Ollama', "Para qual vaga você está se candidatando?");
+            fase++;
+        }
+    } else if (fase === 3) {
+        // Coleta de vaga
+        if (!user.role) {
+            user.role = userMessage;
+            addMessageToChat('Ollama', "Me diga alguma experiência profissional sua.");
+            fase++;
+        }
+    } else if (fase === 4) {
+        // Coleta de experiência profissional
+        if (!user.experience) {
+            user.experience = userMessage;
+            addMessageToChat('Ollama', "Qual sua formação?");
+            fase++;
+        }
+    } else if (fase === 5) {
+        // Coleta de formação acadêmica
+        if (!user.degree) {
+            user.degree = userMessage;
+            const response = await fetch("http://localhost:5000/Valida", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify(user)
+            });
+
+            const data = await response.json();
+            addMessageToChat('Ollama', "Obrigado! Suas informações foram enviadas para validação.");
+            fase++;
+            console.log(fase);
+            console.log(data);
+            sendMessage();
+        }
+        
+    } else if (fase === 6) {
+        // Entrevista (5 perguntas)
+        const response = await fetch("http://localhost:5000/Ask", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({ cpf: user.cpf })
+        });
+
+        if (!response.ok) {
+            console.error("Erro:", response.statusText);
+            return;
+        }
+
+        const data = await response.json();
+        addMessageToChat('Ollama', data.response);
+        fase++;  // Passa para a avaliação da resposta após a pergunta
+    } else if (fase === 7) {
+        // Avaliação da resposta do usuário
+        console.log(user.cpf);
+        console.log(userMessage);
+        const response = await fetch("http://localhost:5000/Answer", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({ cpf: user.cpf, resposta: userMessage })
+        });
+
+        const data = await response.json();
+        addMessageToChat('Ollama', data.response);
+
+        if (data.final) {
+            addMessageToChat('Ollama', "Entrevista finalizada! Pontuação total: " + data.final_score);
+            fase++;
+        } else {
+            fase = 6;  // Volta para a fase de pergunta até completar 5 perguntas
+        }
+    }
+}
+
+
+
+        function addMessageToChat(sender, message) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = 'message';
+            messageDiv.innerHTML = `<strong>${sender}:</strong> ${message}`;
+            chatHistory.appendChild(messageDiv);
+            chatHistory.scrollTop = chatHistory.scrollHeight; // Rolagem automática para a última mensagem
+        }
+    </script>
+</body>
+</html>
