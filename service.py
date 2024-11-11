@@ -4,6 +4,32 @@ from model.usuario import user
 import re
 import requests
 import csv
+import json
+def parse_string_to_json(input_string):
+    try:
+        # Divida a string nas linhas
+        lines = input_string.strip().split("\n")
+        
+        # Verifique se há 4 linhas (nome, vaga, experiencia, formação)
+        if len(lines) != 4:
+            raise ValueError("A string não contém 4 campos esperados (nome, vaga, experiencia, formação).")
+        
+        # Crie um dicionário com as chaves apropriadas
+        parsed_data = {
+            "nome": lines[0].strip(),
+            "vaga": lines[1].strip(),
+            "experiencia": lines[2].strip(),
+            "formacao": lines[3].strip()
+        }
+        
+        # Retorne o JSON (em formato de dicionário)
+        return json.dumps(parsed_data, ensure_ascii=False)
+    
+    except Exception as e:
+        return str(e)
+
+
+
 
 categories = {
     "não recomendo fortemente": -10,
@@ -140,7 +166,7 @@ def validarUsuario(usuario, usuario2):
     # Normaliza a resposta para atualização do score
     usuario.score += categories.get(output.lower().strip("'").strip(".").strip(), 0)
 
-    update(usuario)
+    #update(usuario)
     print(usuario.score)
     print(output.lower().strip("'").strip(".").strip())
     return output  # Retorna a classificação e atualiza o score

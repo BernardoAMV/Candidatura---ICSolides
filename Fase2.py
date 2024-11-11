@@ -32,12 +32,7 @@ questions = {
     ]
 }
 
-scores = {
-    "EI": 0,  # Extroversão (E) vs. Introversão (I)
-    "SN": 0,  # Sensação (S) vs. Intuição (N)
-    "TF": 0,  # Pensamento (T) vs. Sentimento (F)
-    "JP": 0   # Julgamento (J) vs. Percepção (P)
-}
+scores = [0, 0, 0, 0]  # [EI, SN, TF, JP]
 
 dimensionGrab = 0
 iGrab= 0
@@ -67,19 +62,24 @@ def grabResposta(response):
             scores[dimensionGrab] += 1
         else:          # e perguntas de numero impar reforçam o anti-perfil (introversão)
             scores[dimensionGrab] -= 1
+    elif response <= 2:
+        if iGrab % 2 == 0: # basicamente, perguntas de numero par reforçam um perfil (extroversão)
+            scores[dimensionGrab] -= 1
+        else:          # e perguntas de numero impar reforçam o anti-perfil (introversão)
+            scores[dimensionGrab] += 1
 
 def getResultado():
 
     # calcular os percentuais, fonte: 16personalities
     results = {
-        "Extroversão (E)": max(0, scores["EI"] / len(questions["EI"]) * 100),
-        "Introversão (I)": max(0, (-scores["EI"]) / len(questions["EI"]) * 100),
-        "Sensação (S)": max(0, scores["SN"] / len(questions["SN"]) * 100),
-        "Intuição (N)": max(0, (-scores["SN"]) / len(questions["SN"]) * 100),
-        "Pensamento (T)": max(0, scores["TF"] / len(questions["TF"]) * 100),
-        "Sentimento (F)": max(0, (-scores["TF"]) / len(questions["TF"]) * 100),
-        "Julgamento (J)": max(0, scores["JP"] / len(questions["JP"]) * 100),
-        "Percepção (P)": max(0, (-scores["JP"]) / len(questions["JP"]) * 100)
+        "Extroversão (E)": max(0, scores[0] / len(questions["EI"]) * 100),
+        "Introversão (I)": max(0, (-scores[0]) / len(questions["EI"]) * 100),
+        "Sensação (S)": max(0, scores[1] / len(questions["SN"]) * 100),
+        "Intuição (N)": max(0, (-scores[1]) / len(questions["SN"]) * 100),
+        "Pensamento (T)": max(0, scores[2] / len(questions["TF"]) * 100),
+        "Sentimento (F)": max(0, (-scores[2]) / len(questions["TF"]) * 100),
+        "Julgamento (J)": max(0, scores[3] / len(questions["JP"]) * 100),
+        "Percepção (P)": max(0, (-scores[3]) / len(questions["JP"]) * 100)
     }
 
     # mostrar o resultado em percentuais

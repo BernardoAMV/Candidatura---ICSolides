@@ -143,10 +143,64 @@ async function sendMessage() {
             console.log(data);
             sendMessage();
         }
+    }
+    else if (fase === 6) {
+
+            console.log("entrou na fase 6")
+        // Fase de perguntas MBTI
+        const response = await fetch("http://localhost:5000/Fase2Ask", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({ cpf: user.cpf })
+        });
+
+        if (!response.ok) {
+            console.error("Erro:", response.statusText);
+            return;
+        }
+
+        const data = await response.json();
+        addMessageToChat('Ollama', data.response);
+
+        // Verifica se todas as perguntas foram completadas
+        if (data.response === "All questions completed.") {
+            console.log("All questions completed")
+            fase++;  // Passa para a fase de resposta final da Fase 2
+            sendMessage();
+        } else {
+            fase = 7;  // Muda para a fase de resposta da pergunta MBTI
+        }
+    } else if (fase === 7) {
+        console.log("entrou fase 7")
+        console.log(userMessage)
+        // Envia a resposta para a pergunta MBTI
+        const response = await fetch("http://localhost:5000/Fase2Answer", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({ cpf: user.cpf, resposta: userMessage })
+        });
+        console.log(userMessage);
+        const data = await response.json();
+        addMessageToChat('Ollama', data.response);
+
+        // Verifica se todas as perguntas foram completadas
+        if (data.final) {
+            addMessageToChat('Ollama', "Perfil comportamental completo: " + data.perfilComportamental);
+            fase++;  // Finaliza a Fase 2
+            addMessageToChat('Ollama', "Vou te fazer algumas perguntas sobre sua área, tudo bem?");
+            sendMessage()
+        } else {
+            fase = 6;  // Volta para a próxima pergunta MBTI
+        }
+    }
         
-    } else if (fase === 6) {
+     else if (fase === 8) {
         // Entrevista (5 perguntas)
-        const response = await fetch("http://localhost:5000/Ask", {
+        const response = await fetch("http://localhost:5000/Fase3Ask", {
             method: "POST",
             headers: {
                 "Content-Type": "application/json"
@@ -162,11 +216,11 @@ async function sendMessage() {
         const data = await response.json();
         addMessageToChat('Ollama', data.response);
         fase++;  // Passa para a avaliação da resposta após a pergunta
-    } else if (fase === 7) {
+    } else if (fase === 9) {
         // Avaliação da resposta do usuário
         console.log(user.cpf);
         console.log(userMessage);
-        const response = await fetch("http://localhost:5000/Answer", {
+        const response = await fetch("http://localhost:5000/Fase3Answer", {
             method: "POST",
             headers: {
                 "Content-Type": "application/json"
@@ -181,9 +235,10 @@ async function sendMessage() {
             addMessageToChat('Ollama', "Entrevista finalizada! Pontuação total: " + data.final_score);
             fase++;
         } else {
-            fase = 6;  // Volta para a fase de pergunta até completar 5 perguntas
+            fase = 8;  // Volta para a fase de pergunta até completar 5 perguntas
         }
     }
+    
 }
 
 

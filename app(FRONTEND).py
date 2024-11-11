@@ -5,6 +5,9 @@ import service
 from model.usuario import user
 import Fase2
 import Fase3
+from twilio.twiml.messaging_response import MessagingResponse
+
+
 
 app = Flask(__name__)
 CORS(app)  # Habilitando CORS para todas as rotas
@@ -72,10 +75,12 @@ def Valida():
 @app.route('/Fase2Ask', methods=['POST'])
 def Fase2Ask():
     try:
+
         data = request.json
         user_id = data.get("cpf")
+        newSessionID(user_id)
         question = Fase2.nextQuestion()
-        
+        print(question)
         return jsonify({'response': question})
     except Exception as e:
         return jsonify({'error': f'Error generating MBTI question: {str(e)}'}), 500
@@ -85,16 +90,19 @@ def Fase2Answer():
     try:
         data = request.json
         user_id = data.get("cpf")
-        response = int(data.get("resposta"))
-
+        response = data.get("resposta")
+        if response != "":
+            response = int(data.get("resposta"))
+            print(response)
+            print("bababa")
+            Fase2.grabResposta(response)
+            question = Fase2.nextQuestion()
+        else:    
+            question = Fase2.nextQuestion()
         if user_id not in user_sessions or user_sessions[user_id].get("fase2_questions_completed"):
             return jsonify({'error': 'Session not found or phase 2 already completed'}), 400
-
-        Fase2.grabResposta(response)
-
-        question = Fase2.nextQuestion()
-
         if question == "All questions completed.":
+            print("ACABO")
             result = Fase2.getResultado()
             user_sessions[user_id]["perfilComportamental"] = result
             user_sessions[user_id]["fase2_questions_completed"] = True
