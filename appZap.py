@@ -6,6 +6,7 @@ from Fases import Fase2
 from Fases import Fase3
 from twilio.twiml.messaging_response import MessagingResponse
 
+
 user_sessions = {} # Dicionario.
 user_model = {
     # fase 1
@@ -24,7 +25,7 @@ user_model = {
     "questions":                          [], # Lista de questoes que foram perguntadas.
     "answers":                            [], # Lista de respostas dadas pelo usuario.
     "correction":                         [],  # 'Correcao'/Opiniao da IA sobre a resposta para a pergunta.  
-    "fase":                                1,
+    "fase":                                0,
     "cpf":                                 "",
     "controle":                             1,
     "question":                             True,
@@ -37,26 +38,18 @@ def newSessionID(idCandidato):
 
 
 app = Flask(__name__)
-def gen_resp(prompt):
-# Use Llama to ask the question
-    response = ollama.chat(
-        model='llama3.2',
-        messages=[{'role': 'user', 'content': prompt}]
-    )
-    
-    # Get the model's response
-    if 'message' in response and 'content' in response['message']:
-        output = response['message']['content']
-    else:
-        output = "O modelo não retornou uma resposta válida."
-    
-    return output
     
 @app.route('/webhook', methods=['POST'])
-def teste():
+def webhook():
     incoming_que = request.values.get('Body', '').lower()
     print(incoming_que)
-
+    if(user_model["fase"] == 0):
+            resp =  service.welcome
+            bot_resp = MessagingResponse()
+            msg = bot_resp.message()
+            msg.body(resp)
+            user_model["fase"] += 1
+            return str(bot_resp)
     if(user_model["fase"] == 1):
         user = service.select(incoming_que)
         if(user == None):
@@ -68,7 +61,7 @@ def teste():
             service.fase1(user)
             bot_resp = MessagingResponse()
             msg = bot_resp.message()
-            msg.body("""Certo! Já te achei no nosso Sistema, Agora vou te pedir algumas informações para confirmação. Por favor, envie suas informações da seguinte forma:
+            msg.body("""Certo! Já te achei no nosso sistema, Agora vou te pedir algumas informações para confirmação. Por favor, envie suas informações da seguinte forma:
                      Seu nome
                      Vaga que está candidatando
                      Uma experiência profissional sua descrita no currículo
@@ -79,11 +72,21 @@ def teste():
     
     elif(user_model["fase"] == 2):
         user = service.parse_string_to_json(incoming_que)
+        if user == "A string não contém 4 campos esperados (nome, vaga, experiencia, formação).":
+            bot_resp = MessagingResponse()
+            msg = bot_resp.message()
+            msg.body("""Houve algum problema com sua resposta, por favor reenvie a resposta e certifique que a mesma esteja no seguinte padrão:
+                     Seu nome
+                     Vaga que está candidatando
+                     Uma experiência profissional sua descrita no currículo
+                     Sua mais recente formação profissional""")
+            return str(bot_resp)
         user2 = service.select(user_model["cpf"])
         service.validarUsuario(user2,user)
         bot_resp = MessagingResponse()
         msg = bot_resp.message()
-        msg.body("Tudo nos conformes! Agora vou lhe fazer algumas perguntinhas para identificar seu perfil comportamental, ok?")
+        msg.body("""Tudo nos conformes! Agora vou lhe fazer algumas perguntinhas para identificar seu perfil comportamental, ok? 
+                 E lembre-se, respostas fora dos limites estipulados (1 a 5) irão afetar negativamente seu desempenho!""")
         user_model["fase"] += 1
         return str(bot_resp)
     
@@ -148,8 +151,14 @@ def teste():
                 return jsonify({'error': 'Sessão não encontrada'}), 400
 
             current_question = session["questions"][session["current_question"] - 1]
-       
-            score = Fase3.extrair_nota(Fase3.avaliar_resposta(current_question, incoming_que))
+            resposta = Fase3.avaliar_resposta(current_question, incoming_que)
+            score = Fase3.extrair_nota(resposta)
+            print(f"SCORE ERRADO:{score}")
+            if(score == 0):
+                bot_resp = MessagingResponse()
+                msg = bot_resp.message()
+                msg.body(resposta)
+                return str(bot_resp)
             print(session["score"])
             session["score"] += int(score)
             session["answers"].append(incoming_que)

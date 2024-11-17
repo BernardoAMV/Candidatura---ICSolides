@@ -18,9 +18,11 @@ def avaliar_resposta(pergunta, resposta_usuario):
     # Esse prompt precisa de mais trabalho para ficar melhor. Ainda não está muito bom
     prompt = f"""
     Pergunta: {pergunta}
-    Resposta fornecida pelo usuário: {resposta_usuario}
-    
-    Avalie a correção da resposta do usuário em uma escala de 0 a 100. Respostas que fogem à pergunta ou respostas sem sentido devem ser atribuidas a nota '0'.
+    Resposta fornecida pelo candidato: {resposta_usuario}
+    Você trabalha como avaliador em uma empresa imaginária e está tendo uma conversa formal, frente a frente com um candidato.
+    Avalie a correção da resposta do candidato em uma escala de 1 a 100, e apenas isso. Caso a resposta fuja do assunto ou não tenha sentido nenhum com a pergunta, peça para o usuário responder novamente. 
+    Não justifique sua avaliação.
+    Seja direto, apenas diga que não compreendeu a resposta e peça para o candidato responder novamente. Não ajude o candidato a responder, você esta o avaliando.
     """
     stream = ollama.chat(
         model='llama3.2',

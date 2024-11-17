@@ -32,7 +32,17 @@ def parse_string_to_json(input_string):
     except Exception as e:
         return str(e)
 
+welcome = """Olá!
 
+Sobrevém a Sólides! Estamos aqui para ajudar você a encontrar o seu lugar no nosso time.
+
+Para prosseguir com sua candidatura, precisamos de alguns detalhes importantes. Por favor, forneça-nos seu CPF completo, incluindo pontos e traços. É fundamental que você inclua esses elementos para garantir a segurança e integridade do documento.
+
+Lembre-se de que o CPF é um número único e deve ser fornecido exatamente como está na sua carteira de identidade ou no extrato da previdência social, incluindo pontos e traços.
+
+Nós aguardamos ansiosamente por sua resposta e estamos confiantes de que você vai se destacar entre os candidatos!
+
+Obrigado pela sua cooperação e esperamos ouvir de você logo!"""
 
 
 categories = {
@@ -71,7 +81,72 @@ def select(cpf):
         return user(name=name, cpf=cpf, role=role, experiences=experiences, degree=degree, exigences=exigences, score=score)
     
     # Return None if no user is found
-    return None    
+    return None
+
+def gen_welcome():
+    prompt = """
+    Por favor, gere uma mensagem de boas vindas ao programa de candidatura da empresa fictícia Sólides, e peça, com gentileza para o usuário (fictício) enviar seu cpf.
+    Lembre o usuário de INCLUIR pontos e traços, o cpf deve conter traços e pontos.
+    O campo de entrada do usuário JÁ ESTÁ IMPLEMENTADO E DEMONSTRADO, NÃO OFEREÇA UM CAMPO DE ENTRADA.
+
+    este é um exemplo de entrada perfeito, se inspire nele: 
+    
+    """
+    
+    # Envia a consulta à LLM
+    response = ollama.chat(
+        model='llama3.2',
+        messages=[{'role': 'user', 'content': prompt}]
+    )
+    
+    if 'message' in response and 'content' in response['message']:
+        output = response['message']['content']
+    else:
+        output = "O modelo não retornou uma resposta válida."
+
+    print("Resposta do modelo:", output)
+
+    return output
+
+
+
+
+    
+def getAll():
+    # Lê o arquivo CSV
+    df = pd.read_csv(DB)
+    
+    # Lista para armazenar objetos `user`
+    users = []
+    
+    # Itera sobre cada linha do DataFrame
+    for _, row in df.iterrows():
+        # Extrai os dados de cada coluna
+        name = row['name']
+        cpf = row['cpf']
+        role = row['role']
+        experiences = row['experiences']
+        degree = row['degree']
+        exigences = row['exigences']
+        score = int(row['score'])  # Converte para inteiro
+        # Converte `experiences` e `exigences` para lista
+        if isinstance(experiences, str):
+            experiences = experiences.split(',')
+        else:
+            experiences = []
+        
+        if isinstance(exigences, str):
+            exigences = exigences.split(',')
+        else:
+            exigences = []
+        
+        # Cria o objeto `user` e adiciona à lista
+        user_obj = user(name=name, cpf=cpf, role=role, experiences=experiences, degree=degree, exigences=exigences, score=score)
+        users.append(user_obj)
+    
+    # Retorna a lista de usuários
+    return users
+
 
 def update(usuario):
     # Lê o arquivo CSV e armazena o conteúdo em uma lista
@@ -163,14 +238,11 @@ def validarUsuario(usuario, usuario2):
     output = response.get('message', {}).get('content', "O modelo não retornou uma resposta válida.")
     
     print("Resposta do modelo:", output)
-
     print(usuario.score)
-    print(categories.get(output.lower().strip("'").strip(".").strip(), 0))
-    print(categories)
+
     # Normaliza a resposta para atualização do score
     usuario.score += categories.get(output.lower().strip("'").strip(".").strip(), 0)
 
     #update(usuario)
     print(usuario.score)
-    print(output.lower().strip("'").strip(".").strip())
     return output  # Retorna a classificação e atualiza o score
