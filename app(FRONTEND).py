@@ -1,7 +1,7 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS  # Importando o CORS
 import ollama
-import service
+import Service.service as service
 from model.usuario import user
 import Fase2
 import Fase3

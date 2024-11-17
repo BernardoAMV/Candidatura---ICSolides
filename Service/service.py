@@ -5,6 +5,10 @@ import re
 import requests
 import csv
 import json
+
+DB = "DB/DB.csv"
+
+
 def parse_string_to_json(input_string):
     try:
         # Divida a string nas linhas
@@ -42,7 +46,7 @@ categories = {
 # Function to select the user based on CPF from the CSV
 def select(cpf):
     # Read the CSV file
-    df = pd.read_csv("DB.csv")
+    df = pd.read_csv(DB)
     
     # Find the row containing the given CPF
     user_row = df[df['cpf'] == cpf]
@@ -75,7 +79,7 @@ def update(usuario):
     usuario_atualizado = False
     
     # Carrega todos os dados do CSV e procura o usuário a ser atualizado
-    with open("DB.csv", mode='r', newline='', encoding='utf-8') as csvfile:
+    with open(DB, mode='r', newline='', encoding='utf-8') as csvfile:
         leitor = csv.DictReader(csvfile)
         for linha in leitor:
             if linha['cpf'] == usuario.cpf:
@@ -90,7 +94,7 @@ def update(usuario):
         return False
 
     # Escreve os dados atualizados de volta ao CSV
-    with open("DB.csv", mode='w', newline='', encoding='utf-8') as csvfile:
+    with open(DB, mode='w', newline='', encoding='utf-8') as csvfile:
         campos = ["name", "cpf", "role", "experiences", "degree", "exigences", "score"]
         escritor = csv.DictWriter(csvfile, fieldnames=campos)
         escritor.writeheader()

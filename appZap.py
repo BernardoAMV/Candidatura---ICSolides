@@ -1,9 +1,9 @@
 from flask import Flask, request, jsonify
 import ollama
-import service
+import Service.service as service
 from model.usuario import user
-import Fase2
-import Fase3
+from Fases import Fase2
+from Fases import Fase3
 from twilio.twiml.messaging_response import MessagingResponse
 
 user_sessions = {} # Dicionario.
