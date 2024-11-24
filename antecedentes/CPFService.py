@@ -37,21 +37,13 @@ def saveJSON(filename, data):
     json.dump(data, file, indent=4)
   
 def possuiAntecedentes(CPFNUM, nomeDB):
-  return bool(pesqBinaria(CPFNUM, loadJSON(nomeDB)))
+  return bool(pesqSequencial(CPFNUM, loadJSON(nomeDB)))
 
-def pesqBinaria(cpfnum, data):
-  low = 0
-  high = len(data) - 1
-  while low <= high:
-    mid = (low + high) // 2
-    mid_cpf = data[mid]["CPFNUM"]
-    if mid_cpf == cpfnum:
-      return data[mid]["antecedente"]
-    elif mid_cpf < cpfnum:
-      low = mid + 1
-    else:
-      high = mid - 1
-  return None
+def pesqSequencial(cpfnum, data):
+    for item in data:
+        if item["CPFNUM"] == cpfnum:
+            return item["antecedente"]
+    return None
   
 def addEntry(cpfnum, antecedente, data, filename):
   for entry in data:

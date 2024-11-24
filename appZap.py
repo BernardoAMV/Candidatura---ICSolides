@@ -7,6 +7,11 @@ from Fases import Fase3
 from twilio.twiml.messaging_response import MessagingResponse
 from antecedentes import CPFService
 import os
+from dotenv import load_dotenv
+import requests
+import Service.videohandler as videohandler
+# Carregar variáveis de ambiente do arquivo .env
+load_dotenv()
 
 
 
@@ -24,7 +29,7 @@ user_model = {
     "fase2_questions_completed":       False,
     # fase 3
     "current_question":                    0, # Trackeia qual questão estamos na fase 3
-    "score":                               0, # Pontuação total?
+    "score":                               50, # Pontuação total?
     "questions":                          [], # Lista de questoes que foram perguntadas.
     "answers":                            [], # Lista de respostas dadas pelo usuario.
     "correction":                         [],  # 'Correcao'/Opiniao da IA sobre a resposta para a pergunta.  
@@ -38,7 +43,41 @@ user_model = {
 def newSessionID(idCandidato):
     if idCandidato not in user_sessions:
         user_sessions[idCandidato] = user_model.copy()
+def process_media(media_url, media_type, save_path="video_recebido.mp4"):
+    """
+    Processa e baixa uma mídia do Twilio.
 
+    Args:
+        media_url (str): URL da mídia fornecida pelo Twilio.
+        media_type (str): Tipo da mídia (ex.: video/mp4).
+        save_path (str): Caminho para salvar a mídia baixada.
+
+    Returns:
+        bool: True se a mídia foi baixada e salva com sucesso, False caso contrário.
+    """
+    if not media_url or not media_type.startswith("video"):
+        print("A mídia não é um vídeo válido.")
+        return False
+
+    print(f"Baixando mídia do URL: {media_url}")
+    try:
+        # Fazer a requisição para baixar a mídia
+        response = requests.get(media_url, headers={
+            "Authorization": f"Basic {os.getenv('TWILIO_AUTH')}"
+        })
+
+        if response.status_code == 200:
+            # Salvar o conteúdo no arquivo
+            with open(save_path, "wb") as video_file:
+                video_file.write(response.content)
+            print(f"Vídeo salvo em: {save_path}")
+            return True
+        else:
+            print(f"Falha ao baixar a mídia. Código de status: {response.status_code}")
+            return False
+    except Exception as e:
+        print(f"Erro ao processar a mídia: {e}")
+        return False
 
 
 app = Flask(__name__)
@@ -57,7 +96,8 @@ def webhook():
     if(user_model["fase"] == 1):
         if(CPFService.validaCPF(incoming_que)):
             user = service.select(str(incoming_que))
-            print(user)
+            user_model['nome'] = user.name
+            user_model['cpf'] = incoming_que
         else:
             print(CPFService.validaCPF(incoming_que))
             user = None
@@ -67,13 +107,13 @@ def webhook():
             msg = bot_resp.message()
             msg.body(resp)
         else:
+            print(CPFService.possuiAntecedentes(incoming_que, "antecedentes/banco_de_CPF.json"))
             if(CPFService.possuiAntecedentes(incoming_que, "antecedentes/banco_de_CPF.json")):
-                user_model['score'] += service.categories.get(service.fase1(user).lower().strip("'").strip(".").strip(), 0)
+                user_model['score'] += service.fase1(user)
                 user_model['score'] -= 30;
-                print("Novo score do usuário " + user.name + ": " + user_model['score'])
-                user_model['name'] = user.name
-                user_model['cpf'] = incoming_que
-            user_model['score'] += service.categories.get(service.fase1(user).lower().strip("'").strip(".").strip(), 0)
+                print("Novo score do usuário " + user_model['nome'] + ": " + str(user_model['score']))
+            user_model['score'] += service.fase1(user)
+            print("Novo score do usuário " + user_model['nome'] + ": " + str(user_model['score']))
             bot_resp = MessagingResponse()
             msg = bot_resp.message()
             msg.body("""Certo! Já te achei no nosso sistema, Agora vou te pedir algumas informações para confirmação. Por favor, envie suas informações da seguinte forma:
@@ -81,7 +121,7 @@ def webhook():
                      Vaga que está candidatando
                      Uma experiência profissional sua descrita no currículo
                      Sua mais recente formação profissional""")
-            if not os.path.exists(user_model["diretorio"]):
+            if not os.path.exists(user_model["diretorio"] + user_model['cpf'] + "-" + user_model['nome']):
                 user_model["diretorio"] = user_model["diretorio"] + user_model['cpf'] + "-" + user_model['nome']
                 os.makedirs(user_model["diretorio"])
                 print(f'Diretório "{user_model["diretorio"]}" criado com sucesso!')
@@ -102,8 +142,8 @@ def webhook():
                      Sua mais recente formação profissional""")
             return str(bot_resp)
         user2 = service.select(user_model["cpf"])
-        user_model['score'] += service.categories.get(service.validarUsuario(user2,user).lower().strip("'").strip(".").strip(), 0)
-        print("Novo score do usuário " + user.name + ": " + user_model['score']) 
+        user_model['score'] += service.validarUsuario(user2,user)
+        print("Novo score do usuário " + user_model['nome'] + ": " + str(user_model['score'])) 
         bot_resp = MessagingResponse()
         msg = bot_resp.message()
         msg.body("""Tudo nos conformes! Agora vou lhe fazer algumas perguntinhas para identificar seu perfil comportamental, ok? 
@@ -156,7 +196,7 @@ def webhook():
                     "score": 0,
                     "questions": [],
                     "answers": [],
-                    "notas": []
+                    "notassss": [],
             }
              question = Fase3.gerar_pergunta(user_data.role)
              user_sessions[user_id]["questions"].append(question)
@@ -184,17 +224,18 @@ def webhook():
             print(session["score"])
             session["score"] += int(score)
             session["answers"].append(incoming_que)
-            session["notas"].append(score)
+            session["notassss"].append(int(score))
         
             if session["current_question"] >= 5:
                 final_score = session["score"]
                 user_model['score'] += final_score / 5 #média das notas das respostas
-                print("Novo score do usuário " + user_model['name'] + ": " + user_model['score'])
-                service.criar_ou_atualizar_csv(user_model["diretorio"] + "/Entrevista_Técnica_" + user_model['cpf'], user_sessions[user_model["cpf"]]["questions"],user_sessions[user_model["cpf"]]["answers"],user_sessions[user_model["cpf"]]["notas"])
+                print("Novo score do usuário " + user_model['nome'] + ": " + str(user_model['score']))
+                print(user_model['diretorio'])
+                service.criar_ou_atualizar_csv(user_model["diretorio"] + "/Entrevista_Técnica_" + user_model['cpf'], user_sessions[user_model["cpf"]]["questions"],user_sessions[user_model["cpf"]]["answers"],user_sessions[user_model["cpf"]]["notassss"])
                 user_sessions.pop(user_id)
                 bot_resp = MessagingResponse()
                 msg = bot_resp.message()
-                msg.body("Entrevista Finalizada! Muito obrigado por participar de nosso processo!")
+                msg.body("Entrevista Finalizada! Agora precisamos que mande um vídeo se apresentando, falando um pouco sobre si")
                 return str(bot_resp)
         
             next_question = Fase3.gerar_pergunta(user_data.role)
@@ -204,7 +245,24 @@ def webhook():
             msg = bot_resp.message()
             msg.body(next_question)
             return str(bot_resp)
+    elif (user_model["fase"] == 5):
+        Video_handler = videohandler.WhatsAppVideoHandler(
+            account_sid=f'{os.getenv("TWILLIO_ACCOUNT")}',
+            auth_token=f'{os.getenv("TWILLIO_TOKEN")}',
+            upload_folder=user_model["diretorio"],
+        )
+        success, message, saved_path = Video_handler.process_video_message(request.values)
+    
+    if success:
+        # Add your custom logic here
+        # For example, store the path in your database
+       Video_handler.store_in_database(saved_path)
+    
+    resp = MessagingResponse()
+    resp.message(message)
+    return str(resp)
 
+    
 
 
 if __name__ == '__main__':

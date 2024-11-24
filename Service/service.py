@@ -11,22 +11,52 @@ DB = "DB/DB.csv"
 
 
 def criar_ou_atualizar_csv(caminho_arquivo, perguntas, respostas, notas):
-    # Verificando se o arquivo já existe
-    arquivo_existe = os.path.exists(caminho_arquivo)
+    """
+    Creates or updates a CSV file with questions, answers, and scores.
+    
+    Args:
+        caminho_arquivo (str): Path to the CSV file
+        perguntas (list): List of questions
+        respostas (list): List of answers
+        notas (list): List of scores
+    """
+    try:
+        # Create directory if it doesn't exist
+        diretorio = os.path.dirname(caminho_arquivo)
+        if diretorio and not os.path.exists(diretorio):
+            os.makedirs(diretorio)
+            print(f"Diretório criado: {diretorio}")
 
-    # Abrindo o arquivo CSV para adicionar dados
-    with open(caminho_arquivo, mode='a', newline='', encoding='utf-8') as arquivo:
-        writer = csv.writer(arquivo)
-
-        # Se o arquivo não existe, escreve o cabeçalho
-        if not arquivo_existe:
-            writer.writerow(['pergunta', 'resposta', 'nota'])
-
-        # Adicionando uma linha para cada item das listas
-        for pergunta, resposta, nota in zip(perguntas, respostas, notas):
-            writer.writerow([pergunta, resposta, nota])
-
-    print(f"Dados adicionados ao arquivo: {caminho_arquivo}")
+        # Check if file exists
+        arquivo_existe = os.path.exists(caminho_arquivo)
+        
+        # Open file in appropriate mode
+        mode = 'a' if arquivo_existe else 'w'
+        
+        with open(caminho_arquivo, mode=mode, newline='', encoding='utf-8') as arquivo:
+            writer = csv.writer(arquivo)
+            
+            # Write header if new file
+            if not arquivo_existe:
+                writer.writerow(['pergunta', 'resposta', 'nota'])
+                print(f"Arquivo criado: {caminho_arquivo}")
+            
+            # Validate input data
+            if len(perguntas) != len(respostas) or len(perguntas) != len(notas):
+                raise ValueError("As listas de perguntas, respostas e notas devem ter o mesmo tamanho")
+            
+            # Add data
+            for pergunta, resposta, nota in zip(perguntas, respostas, notas):
+                writer.writerow([pergunta, resposta, nota])
+            
+            print(f"Dados adicionados ao arquivo: {caminho_arquivo}")
+            
+    except PermissionError:
+        print(f"Erro: Sem permissão para acessar ou criar o arquivo: {caminho_arquivo}")
+    except OSError as e:
+        print(f"Erro ao manipular o arquivo: {e}")
+    except Exception as e:
+        print(f"Erro inesperado: {e}")
 
 
 
@@ -75,18 +105,17 @@ categories = {
 # Function to select the user based on CPF from the CSV
 import pandas as pd
 
-import pandas as pd
 
 def select(cpf):
-    # Read the CSV file
-    df = pd.read_csv(DB)
+    # Read the CSV file with CPF as string type
+    df = pd.read_csv(DB, dtype={'cpf': str})
     
-    # Converte a coluna 'cpf' para string e remove espaços extras
-    df['cpf'] = df['cpf'].astype(str).str.strip()
-
-    # Garantir que o CPF recebido seja tratado como string e sem pontos ou traços
-    cpf = str(cpf).replace('.', '').replace('-', '').zfill(11)  # Garantir 11 caracteres (com o zero à esquerda)
-
+    # Clean the CPF column
+    df['cpf'] = df['cpf'].astype(str).str.strip().str.replace('.', '').str.replace('-', '').str.zfill(11)
+    
+    # Clean and format the input CPF
+    cpf = str(cpf).replace('.', '').replace('-', '').strip().zfill(11)
+    
     # Find the row containing the given CPF
     user_row = df[df['cpf'] == cpf]
     
@@ -108,7 +137,8 @@ def select(cpf):
             exigences = exigences.split(',')
             
         # Create and return the user object with the extracted data
-        return user(name=name, cpf=cpf, role=role, experiences=experiences, degree=degree, exigences=exigences, score=score)
+        return user(name=name, cpf=cpf, role=role, experiences=experiences, 
+                   degree=degree, exigences=exigences, score=score)
     
     # Return None if no user is found
     return None
@@ -240,8 +270,8 @@ def fase1(usuario):
 
     # Validate the response using the validator
 
-    # usuario.score +=categories.get(output.lower().strip("'").strip(".").strip(), 0)
-    return output
+    score = categories.get(output.lower().strip("'").strip(".").strip(), 0)
+    return int(score)
 
 def validarUsuario(usuario, usuario2):
     print("Usuário 1:", usuario.to_json())
@@ -270,11 +300,9 @@ def validarUsuario(usuario, usuario2):
     output = response.get('message', {}).get('content', "O modelo não retornou uma resposta válida.")
     
     print("Resposta do modelo:", output)
-    print(usuario.score)
-
     # Normaliza a resposta para atualização do score
-    #usuario.score += categories.get(output.lower().strip("'").strip(".").strip(), 0)
+    score = categories.get(output.lower().strip("'").strip(".").strip(), 0)
 
     #update(usuario)
-    print(usuario.score)
-    return output  # Retorna a classificação e atualiza o score
+    print(score)
+    return int(score)  # Retorna a classificação e atualiza o score
