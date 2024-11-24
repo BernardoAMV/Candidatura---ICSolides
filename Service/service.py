@@ -5,8 +5,29 @@ import re
 import requests
 import csv
 import json
-
+import os
+import csv
 DB = "DB/DB.csv"
+
+
+def criar_ou_atualizar_csv(caminho_arquivo, perguntas, respostas, notas):
+    # Verificando se o arquivo já existe
+    arquivo_existe = os.path.exists(caminho_arquivo)
+
+    # Abrindo o arquivo CSV para adicionar dados
+    with open(caminho_arquivo, mode='a', newline='', encoding='utf-8') as arquivo:
+        writer = csv.writer(arquivo)
+
+        # Se o arquivo não existe, escreve o cabeçalho
+        if not arquivo_existe:
+            writer.writerow(['pergunta', 'resposta', 'nota'])
+
+        # Adicionando uma linha para cada item das listas
+        for pergunta, resposta, nota in zip(perguntas, respostas, notas):
+            writer.writerow([pergunta, resposta, nota])
+
+    print(f"Dados adicionados ao arquivo: {caminho_arquivo}")
+
 
 
 def parse_string_to_json(input_string):
@@ -36,9 +57,7 @@ welcome = """Olá!
 
 Sobrevém a Sólides! Estamos aqui para ajudar você a encontrar o seu lugar no nosso time.
 
-Para prosseguir com sua candidatura, precisamos de alguns detalhes importantes. Por favor, forneça-nos seu CPF completo, incluindo pontos e traços. É fundamental que você inclua esses elementos para garantir a segurança e integridade do documento.
-
-Lembre-se de que o CPF é um número único e deve ser fornecido exatamente como está na sua carteira de identidade ou no extrato da previdência social, incluindo pontos e traços.
+Para prosseguir com sua candidatura, precisamos de alguns detalhes importantes. Por favor, forneça-nos seu CPF completo, sem incluir pontos e traços. É fundamental que você não inclua esses elementos para garantir a segurança e identificação.
 
 Nós aguardamos ansiosamente por sua resposta e estamos confiantes de que você vai se destacar entre os candidatos!
 
@@ -54,10 +73,20 @@ categories = {
 }
 
 # Function to select the user based on CPF from the CSV
+import pandas as pd
+
+import pandas as pd
+
 def select(cpf):
     # Read the CSV file
     df = pd.read_csv(DB)
     
+    # Converte a coluna 'cpf' para string e remove espaços extras
+    df['cpf'] = df['cpf'].astype(str).str.strip()
+
+    # Garantir que o CPF recebido seja tratado como string e sem pontos ou traços
+    cpf = str(cpf).replace('.', '').replace('-', '').zfill(11)  # Garantir 11 caracteres (com o zero à esquerda)
+
     # Find the row containing the given CPF
     user_row = df[df['cpf'] == cpf]
     
@@ -71,6 +100,7 @@ def select(cpf):
         exigences = user_row.iloc[0]['exigences']
         score = user_row.iloc[0]['score'].astype(int)
         score = int(score)
+        
         # Convert experiences and exigences from string to list
         if isinstance(experiences, str):
             experiences = experiences.split(',')
@@ -82,6 +112,8 @@ def select(cpf):
     
     # Return None if no user is found
     return None
+
+
 
 def gen_welcome():
     prompt = """
@@ -208,7 +240,7 @@ def fase1(usuario):
 
     # Validate the response using the validator
 
-    usuario.score +=categories.get(output.lower().strip("'").strip(".").strip(), 0)
+    # usuario.score +=categories.get(output.lower().strip("'").strip(".").strip(), 0)
     return output
 
 def validarUsuario(usuario, usuario2):
@@ -241,7 +273,7 @@ def validarUsuario(usuario, usuario2):
     print(usuario.score)
 
     # Normaliza a resposta para atualização do score
-    usuario.score += categories.get(output.lower().strip("'").strip(".").strip(), 0)
+    #usuario.score += categories.get(output.lower().strip("'").strip(".").strip(), 0)
 
     #update(usuario)
     print(usuario.score)

@@ -5,6 +5,9 @@ from model.usuario import user
 from Fases import Fase2
 from Fases import Fase3
 from twilio.twiml.messaging_response import MessagingResponse
+from antecedentes import CPFService
+import os
+
 
 
 user_sessions = {} # Dicionario.
@@ -29,6 +32,7 @@ user_model = {
     "cpf":                                 "",
     "controle":                             1,
     "question":                             True,
+    "diretorio":                            "/home/bernardoamv/projects/Pesquisa científica/rep/Candidatura---ICSolides/Registros-",
 }
 # Funcao para adicionar ID ao user_sessions se não existir
 def newSessionID(idCandidato):
@@ -51,14 +55,25 @@ def webhook():
             user_model["fase"] += 1
             return str(bot_resp)
     if(user_model["fase"] == 1):
-        user = service.select(incoming_que)
+        if(CPFService.validaCPF(incoming_que)):
+            user = service.select(str(incoming_que))
+            print(user)
+        else:
+            print(CPFService.validaCPF(incoming_que))
+            user = None
         if(user == None):
-            resp =  "Usuário não encontrado, Por favor digite seu cpf Novamente! (Inclua números e símbolos)"
+            resp =  "Usuário não encontrado, Por favor digite seu cpf Novamente! (Não inclua símbolos)"
             bot_resp = MessagingResponse()
             msg = bot_resp.message()
             msg.body(resp)
         else:
-            service.fase1(user)
+            if(CPFService.possuiAntecedentes(incoming_que, "antecedentes/banco_de_CPF.json")):
+                user_model['score'] += service.categories.get(service.fase1(user).lower().strip("'").strip(".").strip(), 0)
+                user_model['score'] -= 30;
+                print("Novo score do usuário " + user.name + ": " + user_model['score'])
+                user_model['name'] = user.name
+                user_model['cpf'] = incoming_que
+            user_model['score'] += service.categories.get(service.fase1(user).lower().strip("'").strip(".").strip(), 0)
             bot_resp = MessagingResponse()
             msg = bot_resp.message()
             msg.body("""Certo! Já te achei no nosso sistema, Agora vou te pedir algumas informações para confirmação. Por favor, envie suas informações da seguinte forma:
@@ -66,7 +81,12 @@ def webhook():
                      Vaga que está candidatando
                      Uma experiência profissional sua descrita no currículo
                      Sua mais recente formação profissional""")
-            user_model["cpf"] = incoming_que
+            if not os.path.exists(user_model["diretorio"]):
+                user_model["diretorio"] = user_model["diretorio"] + user_model['cpf'] + "-" + user_model['nome']
+                os.makedirs(user_model["diretorio"])
+                print(f'Diretório "{user_model["diretorio"]}" criado com sucesso!')
+            else:
+                print(f'O diretório "{user_model["diretorio"]}" já existe.')
             user_model["fase"] += 1
         return str(bot_resp)
     
@@ -82,7 +102,8 @@ def webhook():
                      Sua mais recente formação profissional""")
             return str(bot_resp)
         user2 = service.select(user_model["cpf"])
-        service.validarUsuario(user2,user)
+        user_model['score'] += service.categories.get(service.validarUsuario(user2,user).lower().strip("'").strip(".").strip(), 0)
+        print("Novo score do usuário " + user.name + ": " + user_model['score']) 
         bot_resp = MessagingResponse()
         msg = bot_resp.message()
         msg.body("""Tudo nos conformes! Agora vou lhe fazer algumas perguntinhas para identificar seu perfil comportamental, ok? 
@@ -134,7 +155,8 @@ def webhook():
                     "current_question": 0,
                     "score": 0,
                     "questions": [],
-                    "answers": []
+                    "answers": [],
+                    "notas": []
             }
              question = Fase3.gerar_pergunta(user_data.role)
              user_sessions[user_id]["questions"].append(question)
@@ -162,9 +184,13 @@ def webhook():
             print(session["score"])
             session["score"] += int(score)
             session["answers"].append(incoming_que)
+            session["notas"].append(score)
         
             if session["current_question"] >= 5:
                 final_score = session["score"]
+                user_model['score'] += final_score / 5 #média das notas das respostas
+                print("Novo score do usuário " + user_model['name'] + ": " + user_model['score'])
+                service.criar_ou_atualizar_csv(user_model["diretorio"] + "/Entrevista_Técnica_" + user_model['cpf'], user_sessions[user_model["cpf"]]["questions"],user_sessions[user_model["cpf"]]["answers"],user_sessions[user_model["cpf"]]["notas"])
                 user_sessions.pop(user_id)
                 bot_resp = MessagingResponse()
                 msg = bot_resp.message()
