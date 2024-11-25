@@ -95,6 +95,7 @@ def webhook():
             return str(bot_resp)
     if(user_model["fase"] == 1):
         if(CPFService.validaCPF(incoming_que)):
+            print("validou")
             user = service.select(str(incoming_que))
             user_model['nome'] = user.name
             user_model['cpf'] = incoming_que
@@ -112,8 +113,9 @@ def webhook():
                 user_model['score'] += service.fase1(user)
                 user_model['score'] -= 30;
                 print("Novo score do usuário " + user_model['nome'] + ": " + str(user_model['score']))
-            user_model['score'] += service.fase1(user)
-            print("Novo score do usuário " + user_model['nome'] + ": " + str(user_model['score']))
+            else:
+                user_model['score'] += service.fase1(user)
+                print("Novo score do usuário " + user_model['nome'] + ": " + str(user_model['score']))
             bot_resp = MessagingResponse()
             msg = bot_resp.message()
             msg.body("""Certo! Já te achei no nosso sistema, Agora vou te pedir algumas informações para confirmação. Por favor, envie suas informações da seguinte forma:
@@ -146,8 +148,7 @@ def webhook():
         print("Novo score do usuário " + user_model['nome'] + ": " + str(user_model['score'])) 
         bot_resp = MessagingResponse()
         msg = bot_resp.message()
-        msg.body("""Tudo nos conformes! Agora vou lhe fazer algumas perguntinhas para identificar seu perfil comportamental, ok? 
-                 E lembre-se, respostas fora dos limites estipulados (1 a 5) irão afetar negativamente seu desempenho!""")
+        msg.body("""Tudo nos conformes! Agora vou lhe fazer algumas perguntinhas para identificar seu perfil comportamental, ok? E lembre-se, respostas fora dos limites estipulados (1 a 5) irão afetar negativamente seu desempenho!""")
         user_model["fase"] += 1
         return str(bot_resp)
     
@@ -172,13 +173,14 @@ def webhook():
                 return jsonify({'error': 'Session not found or phase 2 already completed'}), 400
             if question == "All questions completed.":
                 result = Fase2.getResultado()
+                print("Resultado mbti: " + result)
                 user_sessions[user_model["cpf"]]["perfilComportamental"] = result
                 user_sessions[user_model["cpf"]]["fase2_questions_completed"] = True
                 user_model["fase"] += 1
                 user_model["question"] = True
                 bot_resp = MessagingResponse()
                 msg = bot_resp.message()
-                msg.body("Certo, acabamos seu perfil comportamental! Agora vamos fazer uma mini entrevista técnica, serão 5 perguntinhas sobre sua área de atuação, ok?")
+                msg.body("""Certo, acabamos seu perfil comportamental! Agora vamos fazer uma mini entrevista técnica, serão 5 perguntinhas sobre sua área de atuação, ok? Caso não saiba responder à pergunta, responda 'pular pergunta'.""")
                 return str(bot_resp)
 
             bot_resp = MessagingResponse()
@@ -196,9 +198,10 @@ def webhook():
                     "score": 0,
                     "questions": [],
                     "answers": [],
-                    "notassss": [],
+                    "notas": [],
+                    "respostas_llm": [],
             }
-             question = Fase3.gerar_pergunta(user_data.role)
+             question = Fase3.gerar_pergunta(user_data.role,user_sessions[user_id]["questions"])
              user_sessions[user_id]["questions"].append(question)
              user_sessions[user_id]["current_question"] += 1
              bot_resp = MessagingResponse()
@@ -219,26 +222,28 @@ def webhook():
             if(score == 0):
                 bot_resp = MessagingResponse()
                 msg = bot_resp.message()
-                msg.body(resposta)
+                msg.body("Desculpe, não entendi sua resposta, pode responder novamente?")
                 return str(bot_resp)
+            else:
+                session["respostas_llm"].append(resposta)
             print(session["score"])
             session["score"] += int(score)
             session["answers"].append(incoming_que)
-            session["notassss"].append(int(score))
+            session["notas"].append(int(score))
         
             if session["current_question"] >= 5:
                 final_score = session["score"]
                 user_model['score'] += final_score / 5 #média das notas das respostas
                 print("Novo score do usuário " + user_model['nome'] + ": " + str(user_model['score']))
                 print(user_model['diretorio'])
-                service.criar_ou_atualizar_csv(user_model["diretorio"] + "/Entrevista_Técnica_" + user_model['cpf'], user_sessions[user_model["cpf"]]["questions"],user_sessions[user_model["cpf"]]["answers"],user_sessions[user_model["cpf"]]["notassss"])
+                service.criar_ou_atualizar_csv(user_model["diretorio"] + "/Entrevista_Técnica_" + user_model['cpf'], user_sessions[user_model["cpf"]]["questions"],user_sessions[user_model["cpf"]]["answers"],user_sessions[user_model["cpf"]]["notas"],user_sessions[user_model["cpf"]]["respostas_llm"])
                 user_sessions.pop(user_id)
                 bot_resp = MessagingResponse()
                 msg = bot_resp.message()
-                msg.body("Entrevista Finalizada! Agora precisamos que mande um vídeo se apresentando, falando um pouco sobre si")
+                msg.body("Entrevista Finalizada! Agora precisamos que nos envie por aqui mesmo um vídeo se apresentando, falando um pouco sobre si")
                 return str(bot_resp)
         
-            next_question = Fase3.gerar_pergunta(user_data.role)
+            next_question = Fase3.gerar_pergunta(user_data.role, user_sessions[user_id]["questions"])
             session["questions"].append(next_question)
             session["current_question"] += 1
             bot_resp = MessagingResponse()
@@ -251,16 +256,16 @@ def webhook():
             auth_token=f'{os.getenv("TWILLIO_TOKEN")}',
             upload_folder=user_model["diretorio"],
         )
-        success, message, saved_path = Video_handler.process_video_message(request.values)
+        success, message, saved_path =  Video_handler.process_video_message(request.values)
     
-    if success:
+        if success:
         # Add your custom logic here
         # For example, store the path in your database
-       Video_handler.store_in_database(saved_path)
+            Video_handler.store_in_database(saved_path)
     
-    resp = MessagingResponse()
-    resp.message(message)
-    return str(resp)
+        resp = MessagingResponse()
+        resp.message(message)
+        return str(resp)
 
     
 
