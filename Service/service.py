@@ -10,7 +10,7 @@ import csv
 DB = "DB/DB.csv"
 
 
-def criar_ou_atualizar_csv(caminho_arquivo, perguntas, respostas, notas):
+def criar_ou_atualizar_csv(caminho_arquivo, perguntas, respostas, notas, resposta_sugerida):
     """
     Creates or updates a CSV file with questions, answers, and scores.
     
@@ -38,16 +38,16 @@ def criar_ou_atualizar_csv(caminho_arquivo, perguntas, respostas, notas):
             
             # Write header if new file
             if not arquivo_existe:
-                writer.writerow(['pergunta', 'resposta', 'nota'])
+                writer.writerow(['pergunta', 'resposta', 'nota','resposta_sugerida'])
                 print(f"Arquivo criado: {caminho_arquivo}")
             
             # Validate input data
-            if len(perguntas) != len(respostas) or len(perguntas) != len(notas):
+            if len(perguntas) != len(respostas) or len(perguntas) != len(notas) or len(perguntas) != len(resposta_sugerida):
                 raise ValueError("As listas de perguntas, respostas e notas devem ter o mesmo tamanho")
             
             # Add data
-            for pergunta, resposta, nota in zip(perguntas, respostas, notas):
-                writer.writerow([pergunta, resposta, nota])
+            for pergunta, resposta, nota, resposta_sugerida in zip(perguntas, respostas, notas, resposta_sugerida):
+                writer.writerow([pergunta, resposta, nota, resposta_sugerida])
             
             print(f"Dados adicionados ao arquivo: {caminho_arquivo}")
             
@@ -142,33 +142,6 @@ def select(cpf):
     
     # Return None if no user is found
     return None
-
-
-
-def gen_welcome():
-    prompt = """
-    Por favor, gere uma mensagem de boas vindas ao programa de candidatura da empresa fictícia Sólides, e peça, com gentileza para o usuário (fictício) enviar seu cpf.
-    Lembre o usuário de INCLUIR pontos e traços, o cpf deve conter traços e pontos.
-    O campo de entrada do usuário JÁ ESTÁ IMPLEMENTADO E DEMONSTRADO, NÃO OFEREÇA UM CAMPO DE ENTRADA.
-
-    este é um exemplo de entrada perfeito, se inspire nele: 
-    
-    """
-    
-    # Envia a consulta à LLM
-    response = ollama.chat(
-        model='llama3.2',
-        messages=[{'role': 'user', 'content': prompt}]
-    )
-    
-    if 'message' in response and 'content' in response['message']:
-        output = response['message']['content']
-    else:
-        output = "O modelo não retornou uma resposta válida."
-
-    print("Resposta do modelo:", output)
-
-    return output
 
 
 

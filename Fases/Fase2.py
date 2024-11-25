@@ -81,9 +81,6 @@ def getResultado():
         "Julgamento (J)": max(0, scores[3] / len(questions["JP"]) * 100),
         "Percepção (P)": max(0, (-scores[3]) / len(questions["JP"]) * 100)
     }
-
-    # mostrar o resultado em percentuais
-    print("\nResultados do MBTI (em percentuais):")
     resultadoMBTI = ""
     for trait, percentage in results.items():
         resultadoMBTI += f"{trait}: {percentage:.2f}%"
