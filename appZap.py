@@ -18,6 +18,8 @@ user_model = {
     "fase2_current_question_index":        0,
     "fase2_scores":      Fase2.scores.copy(),
     "fase2_questions_completed":       False,
+    "fase2_videoEmocaoAnalise":           "",
+    "fase2_notafinal":                    -1,
     # fase 3
     "current_question":                    0, # Trackeia qual questão estamos na fase 3
     "score":                               0, # Pontuação total?
@@ -114,14 +116,46 @@ def teste():
                 user_model["question"] = True
                 bot_resp = MessagingResponse()
                 msg = bot_resp.message()
-                msg.body("Certo, acabamos seu perfil comportamental! Agora vamos fazer uma mini entrevista técnica, serão 5 perguntinhas sobre sua área de atuação, ok?")
+                msg.body("Certo, acabamos seu o teste de perfil comportamental! Agora vou pedir para que voce me envie um video curto falando sobre o seu interesse na vaga!")
                 return str(bot_resp)
 
             bot_resp = MessagingResponse()
             msg = bot_resp.message()
             msg.body(question)
             return str(bot_resp)
+    
     elif(user_model["fase"] == 4):
+        if 'file' not in request.files:
+            bot_resp = MessagingResponse()
+            msg = bot_resp.message()
+            msg.body("Por favor, envie um vídeo no formato .mp4 para continuar.")
+            return str(bot_resp)
+        file = request.files['file']
+        if file.filename == '':
+            bot_resp = MessagingResponse()
+            msg = bot_resp.message()
+            msg.body("Nenhum arquivo enviado. Por favor, envie um vídeo no formato .mp4 para continuar.")
+            return str(bot_resp)
+        if file and file.filename.endswith('.mp4'):
+            file_path = f"/tmp/{file.filename}"
+            file.save(file_path)
+            user_model["fase2_videoEmocaoAnalise"] = Fase2.extraiEmocao(Fase2.transcreveTexto(f"/tmp/{file.filename}"))
+            user_model["fase2_avaliacaoFase2"] = Fase2.gerarScoreEAvaliacao(user_model["perfilComportamental"],
+                                                                          Fase2.transcreveTexto(f"/tmp/{file.filename}"),
+                                                                          user_model["fase2_videoEmocaoAnalise"])
+            file.remove(file_path)
+            bot_resp = MessagingResponse()
+            msg = bot_resp.message()
+            msg.body("Vídeo recebido e processado! Obrigado! Vamos para a próxima etapa.")
+            user_model["fase"] += 1
+            return str(bot_resp)
+        else:
+            bot_resp = MessagingResponse()
+            msg = bot_resp.message()
+            msg.body("O arquivo enviado não é um vídeo .mp4 válido. Por favor, envie um vídeo no formato correto.")
+            return str(bot_resp)
+
+    elif(user_model["fase"] == 5):
         if(user_model["question"]):
              user_model["question"] = False
              user_id = user_model['cpf']
