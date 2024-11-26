@@ -1,5 +1,5 @@
 import ollama
-import whisper
+# import whisper
 import warnings
 
 warnings.filterwarnings("ignore", category=FutureWarning)
@@ -88,7 +88,7 @@ def getResultado():
     return mbti_profile
 
 def transcreveTexto(pathDoVideo):
-    model = whisper.load_model("base") 
+    model = whisper.load_model("base")
     result = model.transcribe(pathDoVideo)
     transcribed_text = result["text"]
     return transcribed_text

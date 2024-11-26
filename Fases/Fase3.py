@@ -9,7 +9,7 @@ def gerar_pergunta(area, perguntas_anteriores):
 
 
     prompt = f"""Gerar UMA, e apenas UMA, BREVE pergunta para uma entrevista técnica na área de {area}, lembre-se APENAS UMA PERGUNTA. Mantenha a pergunta concisa e específica. Importante: Escreva apenas a pergunta e nada mais. Gere perguntas diferentes, se as perguntas anteriores
-     estiverem vazias é por que é a primeira pergunta, suas perguntas anteriores foram:
+     estiverem vazias é por que é a primeira pergunta que você está gerando, gere 1(uma) pergunta, suas perguntas anteriores foram:
               {perguntas}"""
 
     stream = ollama.chat(
