@@ -1,8 +1,16 @@
 import ollama
 
-def gerar_pergunta(area):
+def gerar_pergunta(area, perguntas_anteriores):
     # Basta especificar uma área para obter perguntas.
-    prompt = f"Gerar uma BREVE pergunta para uma entrevista técnica na área de {area}. Mantenha a pergunta concisa e específica. Importante: Escreva apenas a pergunta e nada mais."
+
+    perguntas = ""
+    for Perguntas in perguntas_anteriores:
+        perguntas += Perguntas + "\n"
+
+
+    prompt = f"""Gerar UMA, e apenas UMA, BREVE pergunta para uma entrevista técnica na área de {area}, lembre-se APENAS UMA PERGUNTA. Mantenha a pergunta concisa e específica. Importante: Escreva apenas a pergunta e nada mais. Gere perguntas diferentes, se as perguntas anteriores
+     estiverem vazias é por que é a primeira pergunta que você está gerando, gere 1(uma) pergunta, suas perguntas anteriores foram:
+              {perguntas}"""
 
     stream = ollama.chat(
         model='llama3.2',
@@ -18,9 +26,22 @@ def avaliar_resposta(pergunta, resposta_usuario):
     # Esse prompt precisa de mais trabalho para ficar melhor. Ainda não está muito bom
     prompt = f"""
     Pergunta: {pergunta}
-    Resposta fornecida pelo usuário: {resposta_usuario}
-    
-    Avalie a correção da resposta do usuário em uma escala de 0 a 100. Respostas que fogem à pergunta ou respostas sem sentido devem ser atribuidas a nota '0'.
+    Resposta fornecida pelo candidato: {resposta_usuario}
+    Você é um avaliador de uma empresa fictícia, conduzindo uma avaliação formal frente a frente com um candidato. Sua tarefa é avaliar a resposta do candidato em uma escala de 0 a 100, seguindo estas diretrizes:
+
+Coerência e relevância:
+Se a resposta do candidato não fizer sentido algum, fugir completamente do assunto, ou consistir em palavras/letras aleatórias (exemplo: "asdf", "123xyz"), ou for uma pergunta ou algo irrelevante, você deve atribuir nota 0.
+Erro no conteúdo:
+Caso a resposta esteja errada, mas faça sentido no contexto, atribua uma nota proporcional à qualidade da resposta, sem ser 0.
+Se o usuário responder: pular pergunta, atribua a nota 1, é muito importante atribuir a nota 1 nesse caso de resposta.
+Formato da resposta:
+Forneça a avaliação em duas partes:
+a) Explicação textual: Justifique sua avaliação de forma clara e detalhada.
+b) Nota numérica: Indique a nota atribuída como o único número presente na resposta.
+Exemplo de resposta formatada:
+"Esta resposta contém alguns erros conceituais, mas está alinhada ao contexto da pergunta. Nota: 70."
+
+Agora, avalie a resposta do candidato seguindo estas instruções.
     """
     stream = ollama.chat(
         model='llama3.2',

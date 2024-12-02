@@ -5,6 +5,61 @@ import re
 import requests
 import csv
 import json
+import os
+import csv
+DB = "DB/DB.csv"
+
+
+def criar_ou_atualizar_csv(caminho_arquivo, perguntas, respostas, notas, resposta_sugerida):
+    """
+    Creates or updates a CSV file with questions, answers, and scores.
+    
+    Args:
+        caminho_arquivo (str): Path to the CSV file
+        perguntas (list): List of questions
+        respostas (list): List of answers
+        notas (list): List of scores
+    """
+    try:
+        # Create directory if it doesn't exist
+        diretorio = os.path.dirname(caminho_arquivo)
+        if diretorio and not os.path.exists(diretorio):
+            os.makedirs(diretorio)
+            print(f"Diretório criado: {diretorio}")
+
+        # Check if file exists
+        arquivo_existe = os.path.exists(caminho_arquivo)
+        
+        # Open file in appropriate mode
+        mode = 'a' if arquivo_existe else 'w'
+        
+        with open(caminho_arquivo, mode=mode, newline='', encoding='utf-8') as arquivo:
+            writer = csv.writer(arquivo)
+            
+            # Write header if new file
+            if not arquivo_existe:
+                writer.writerow(['pergunta', 'resposta', 'nota','resposta_sugerida'])
+                print(f"Arquivo criado: {caminho_arquivo}")
+            
+            # Validate input data
+            if len(perguntas) != len(respostas) or len(perguntas) != len(notas) or len(perguntas) != len(resposta_sugerida):
+                raise ValueError("As listas de perguntas, respostas e notas devem ter o mesmo tamanho")
+            
+            # Add data
+            for pergunta, resposta, nota, resposta_sugerida in zip(perguntas, respostas, notas, resposta_sugerida):
+                writer.writerow([pergunta, resposta, nota, resposta_sugerida])
+            
+            print(f"Dados adicionados ao arquivo: {caminho_arquivo}")
+            
+    except PermissionError:
+        print(f"Erro: Sem permissão para acessar ou criar o arquivo: {caminho_arquivo}")
+    except OSError as e:
+        print(f"Erro ao manipular o arquivo: {e}")
+    except Exception as e:
+        print(f"Erro inesperado: {e}")
+
+
+
 def parse_string_to_json(input_string):
     try:
         # Divida a string nas linhas
@@ -28,7 +83,15 @@ def parse_string_to_json(input_string):
     except Exception as e:
         return str(e)
 
+welcome = """Olá!
 
+Sobrevém a Sólides! Estamos aqui para ajudar você a encontrar o seu lugar no nosso time.
+
+Para prosseguir com sua candidatura, precisamos de alguns detalhes importantes. Por favor, forneça-nos seu CPF completo, sem incluir pontos e traços. É fundamental que você não inclua esses elementos para garantir a segurança e identificação.
+
+Nós aguardamos ansiosamente por sua resposta e estamos confiantes de que você vai se destacar entre os candidatos!
+
+Obrigado pela sua cooperação e esperamos ouvir de você logo!"""
 
 
 categories = {
@@ -40,9 +103,18 @@ categories = {
 }
 
 # Function to select the user based on CPF from the CSV
+import pandas as pd
+
+
 def select(cpf):
-    # Read the CSV file
-    df = pd.read_csv("DB.csv")
+    # Read the CSV file with CPF as string type
+    df = pd.read_csv(DB, dtype={'cpf': str})
+    
+    # Clean the CPF column
+    df['cpf'] = df['cpf'].astype(str).str.strip().str.replace('.', '').str.replace('-', '').str.zfill(11)
+    
+    # Clean and format the input CPF
+    cpf = str(cpf).replace('.', '').replace('-', '').strip().zfill(11)
     
     # Find the row containing the given CPF
     user_row = df[df['cpf'] == cpf]
@@ -57,6 +129,7 @@ def select(cpf):
         exigences = user_row.iloc[0]['exigences']
         score = user_row.iloc[0]['score'].astype(int)
         score = int(score)
+        
         # Convert experiences and exigences from string to list
         if isinstance(experiences, str):
             experiences = experiences.split(',')
@@ -64,10 +137,51 @@ def select(cpf):
             exigences = exigences.split(',')
             
         # Create and return the user object with the extracted data
-        return user(name=name, cpf=cpf, role=role, experiences=experiences, degree=degree, exigences=exigences, score=score)
+        return user(name=name, cpf=cpf, role=role, experiences=experiences, 
+                   degree=degree, exigences=exigences, score=score)
     
     # Return None if no user is found
-    return None    
+    return None
+
+
+
+
+    
+def getAll():
+    # Lê o arquivo CSV
+    df = pd.read_csv(DB)
+    
+    # Lista para armazenar objetos `user`
+    users = []
+    
+    # Itera sobre cada linha do DataFrame
+    for _, row in df.iterrows():
+        # Extrai os dados de cada coluna
+        name = row['name']
+        cpf = row['cpf']
+        role = row['role']
+        experiences = row['experiences']
+        degree = row['degree']
+        exigences = row['exigences']
+        score = int(row['score'])  # Converte para inteiro
+        # Converte `experiences` e `exigences` para lista
+        if isinstance(experiences, str):
+            experiences = experiences.split(',')
+        else:
+            experiences = []
+        
+        if isinstance(exigences, str):
+            exigences = exigences.split(',')
+        else:
+            exigences = []
+        
+        # Cria o objeto `user` e adiciona à lista
+        user_obj = user(name=name, cpf=cpf, role=role, experiences=experiences, degree=degree, exigences=exigences, score=score)
+        users.append(user_obj)
+    
+    # Retorna a lista de usuários
+    return users
+
 
 def update(usuario):
     # Lê o arquivo CSV e armazena o conteúdo em uma lista
@@ -75,7 +189,7 @@ def update(usuario):
     usuario_atualizado = False
     
     # Carrega todos os dados do CSV e procura o usuário a ser atualizado
-    with open("DB.csv", mode='r', newline='', encoding='utf-8') as csvfile:
+    with open(DB, mode='r', newline='', encoding='utf-8') as csvfile:
         leitor = csv.DictReader(csvfile)
         for linha in leitor:
             if linha['cpf'] == usuario.cpf:
@@ -90,7 +204,7 @@ def update(usuario):
         return False
 
     # Escreve os dados atualizados de volta ao CSV
-    with open("DB.csv", mode='w', newline='', encoding='utf-8') as csvfile:
+    with open(DB, mode='w', newline='', encoding='utf-8') as csvfile:
         campos = ["name", "cpf", "role", "experiences", "degree", "exigences", "score"]
         escritor = csv.DictWriter(csvfile, fieldnames=campos)
         escritor.writeheader()
@@ -129,8 +243,8 @@ def fase1(usuario):
 
     # Validate the response using the validator
 
-    usuario.score +=categories.get(output.lower().strip("'").strip(".").strip(), 0)
-    return output
+    score = categories.get(output.lower().strip("'").strip(".").strip(), 0)
+    return int(score)
 
 def validarUsuario(usuario, usuario2):
     print("Usuário 1:", usuario.to_json())
@@ -159,14 +273,9 @@ def validarUsuario(usuario, usuario2):
     output = response.get('message', {}).get('content', "O modelo não retornou uma resposta válida.")
     
     print("Resposta do modelo:", output)
-
-    print(usuario.score)
-    print(categories.get(output.lower().strip("'").strip(".").strip(), 0))
-    print(categories)
     # Normaliza a resposta para atualização do score
-    usuario.score += categories.get(output.lower().strip("'").strip(".").strip(), 0)
+    score = categories.get(output.lower().strip("'").strip(".").strip(), 0)
 
     #update(usuario)
-    print(usuario.score)
-    print(output.lower().strip("'").strip(".").strip())
-    return output  # Retorna a classificação e atualiza o score
+    print(score)
+    return int(score)  # Retorna a classificação e atualiza o score

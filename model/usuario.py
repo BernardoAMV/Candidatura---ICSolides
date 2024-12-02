@@ -40,5 +40,5 @@ class user :
             "experiences": self.experiences,
             "degree": self.degree,
             "exigences": self.exigences,
-            "score": self.score
+            "score": self.score,
         }

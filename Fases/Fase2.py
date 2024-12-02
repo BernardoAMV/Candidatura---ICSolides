@@ -1,5 +1,5 @@
 import ollama
-import whisper
+# import whisper
 import warnings
 
 warnings.filterwarnings("ignore", category=FutureWarning)
@@ -81,9 +81,6 @@ def getResultado():
         "Julgamento (J)": max(0, scores[3] / len(questions["JP"]) * 100),
         "Percepção (P)": max(0, (-scores[3]) / len(questions["JP"]) * 100)
     }
-
-    # mostrar o resultado em percentuais
-    print("\nResultados do MBTI (em percentuais):")
     resultadoMBTI = ""
     for trait, percentage in results.items():
         resultadoMBTI += f"{trait}: {percentage:.2f}%"
@@ -91,7 +88,7 @@ def getResultado():
     return mbti_profile
 
 def transcreveTexto(pathDoVideo):
-    model = whisper.load_model("base") 
+    model = whisper.load_model("base")
     result = model.transcribe(pathDoVideo)
     transcribed_text = result["text"]
     return transcribed_text
