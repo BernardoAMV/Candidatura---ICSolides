@@ -12,11 +12,17 @@ import requests
 import Service.videohandler as videohandler
 # Carregar variáveis de ambiente do arquivo .env    
 load_dotenv()
+import anthropic
 
+API_KEY = os.getenv("CLAUDE_API_KEY")
 
-
+client = anthropic.Anthropic(
+    # defaults to os.environ.get("ANTHROPIC_API_KEY")
+    api_key=API_KEY,
+)
 user_sessions = {} # Dicionario.
 user_sessionsFase4 = {}
+
 user_model = {
     # fase 1
     "nome":                               "",
@@ -39,6 +45,8 @@ user_model = {
     "controle":                             1,
     "question":                             True,
     "diretorio":                            "/home/bernardoamv/projects/Pesquisa científica/rep/Candidatura---ICSolides/Registros-",
+    "incomplete":                           False,
+    "dados_usuario":                        {},
 }
 # Funcao para adicionar ID ao user_sessions se não existir
 def newSessionID(idCandidato):
@@ -119,11 +127,8 @@ def webhook():
                 print("Novo score do usuário " + user_model['nome'] + ": " + str(user_model['score']))
             bot_resp = MessagingResponse()
             msg = bot_resp.message()
-            msg.body("""Certo! Já te achei no nosso sistema, Agora vou te pedir algumas informações para confirmação. Por favor, envie suas informações da seguinte forma:
-                     Seu nome
-                     Vaga que está candidatando
-                     Uma experiência profissional sua descrita no currículo
-                     Sua mais recente formação profissional""")
+            msg.body("""Certo! Já te achei no nosso sistema, Agora vou te pedir algumas informações para confirmação. Por favor, nos envie seu nome, uma experiência profissional, a vaga que está candidatando e sua formação profissional (Bacharel, Técnico, Mestrado):
+                     """)
             if not os.path.exists(user_model["diretorio"] + user_model['cpf'] + "-" + user_model['nome']):
                 user_model["diretorio"] = user_model["diretorio"] + user_model['cpf'] + "-" + user_model['nome']
                 os.makedirs(user_model["diretorio"])
@@ -134,18 +139,18 @@ def webhook():
         return str(bot_resp)
     
     elif(user_model["fase"] == 2):
-        user = service.parse_string_to_json(incoming_que)
-        if user == "A string não contém 4 campos esperados (nome, vaga, experiencia, formação).":
+        user2 = service.select(user_model["cpf"])
+        if not user_model["incomplete"]:
+            user_model["dados_usuario"] = service.mapear_campos_disponiveis(incoming_que)
+            print(user_model["dados_usuario"])
+        resposta = service.ExtrairInfos(incoming_que, user_model["incomplete"],user_model["dados_usuario"])
+        if(resposta["status"] != "sucesso"):
             bot_resp = MessagingResponse()
             msg = bot_resp.message()
-            msg.body("""Houve algum problema com sua resposta, por favor reenvie a resposta e certifique que a mesma esteja no seguinte padrão:
-                     Seu nome
-                     Vaga que está candidatando
-                     Uma experiência profissional sua descrita no currículo
-                     Sua mais recente formação profissional""")
+            msg.body(resposta["prompt_complementar"])
+            user_model["incomplete"] = True
             return str(bot_resp)
-        user2 = service.select(user_model["cpf"])
-        user_model['score'] += service.validarUsuario(user2,user)
+        user_model['score'] += service.validarUsuario(user2,resposta["dados"])
         print("Novo score do usuário " + user_model['nome'] + ": " + str(user_model['score'])) 
         bot_resp = MessagingResponse()
         msg = bot_resp.message()
@@ -153,7 +158,7 @@ def webhook():
         user_model["fase"] += 1
         return str(bot_resp)
     
-    elif(user_model["fase"] == 3):
+    elif(user_model["fase"] == 35):
         if(user_model["question"]):
             newSessionID(user_model["cpf"])
             resp = Fase2.nextQuestion()
@@ -189,7 +194,7 @@ def webhook():
             msg = bot_resp.message()
             msg.body(question)
             return str(bot_resp)
-    elif(user_model["fase"] == 4):
+    elif(user_model["fase"] == 3):
         if(user_model["question"]):
              user_model["question"] = False
              user_id = user_model['cpf']
@@ -203,7 +208,7 @@ def webhook():
                     "notas": [],
                     "respostas_llm": [],
             }
-             question = Fase3.gerar_pergunta(user_data.role,user_sessionsFase4[user_id]["questions"])
+             question = Fase3.gerar_pergunta(user_data.role,user_sessionsFase4[user_id]["questions"], client)
              user_sessionsFase4[user_id]["questions"].append(question)
              user_sessionsFase4[user_id]["current_question"] += 1
              bot_resp = MessagingResponse()
@@ -218,7 +223,7 @@ def webhook():
                 return jsonify({'error': 'Sessão não encontrada'}), 400
 
             current_question = session["questions"][session["current_question"] - 1]
-            resposta = Fase3.avaliar_resposta(current_question, incoming_que)
+            resposta = Fase3.avaliar_resposta(current_question, incoming_que, client)
             score = Fase3.extrair_nota(resposta)
             print(f"SCORE atual:{score}")
             if(score == 0):
@@ -246,7 +251,7 @@ def webhook():
                 user_model["fase"] += 1
                 return str(bot_resp)
         
-            next_question = Fase3.gerar_pergunta(user_data.role, user_sessionsFase4[user_id]["questions"])
+            next_question = Fase3.gerar_pergunta(user_data.role, user_sessionsFase4[user_id]["questions"], client)
             session["questions"].append(next_question)
             session["current_question"] += 1
             bot_resp = MessagingResponse()

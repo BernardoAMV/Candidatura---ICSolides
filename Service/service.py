@@ -7,8 +7,29 @@ import csv
 import json
 import os
 import csv
-DB = "DB/DB.csv"
+from dotenv import load_dotenv
+import anthropic
+from Service.ExtratorDeInformacoes import ValidadorUsuario
+import Service.ExtratorDeInformacoes as extrator
+load_dotenv()
 
+DB = "DB/DB.csv"
+API_KEY = os.getenv("CLAUDE_API_KEY")
+
+client = anthropic.Anthropic(
+    # defaults to os.environ.get("ANTHROPIC_API_KEY")
+    api_key=API_KEY,
+)
+
+def enviar_prompt_claude(prompt):
+    message = client.messages.create(
+    model="claude-3-haiku-20240307",
+    max_tokens=1024,
+    messages=[
+        {"role": "user", "content": prompt}
+    ]
+    )
+    return message.content[0].text
 
 def criar_ou_atualizar_csv(caminho_arquivo, perguntas, respostas, notas, resposta_sugerida):
     """
@@ -228,23 +249,69 @@ def fase1(usuario):
     """
 
     # Use Llama to ask the question
-    response = ollama.chat(
-        model='llama3.2',
-        messages=[{'role': 'user', 'content': prompt}]
+    # response = ollama.chat(
+    #     model='llama3.2',
+    #     messages=[{'role': 'user', 'content': prompt}]
+    # )
+
+    message = client.messages.create(
+    model="claude-3-haiku-20240307",
+    max_tokens=1024,
+    messages=[
+        {"role": "user", "content": prompt}
+    ]
     )
     
     # Get the model's response
-    if 'message' in response and 'content' in response['message']:
-        output = response['message']['content']
-    else:
-        output = "O modelo não retornou uma resposta válida."
+    # if 'message' in response and 'content' in response['message']:
+    #     output = response['message']['content']
+    # else:
+    #     output = "O modelo não retornou uma resposta válida."
 
-    print("Resposta do modelo:", output)
+    print("Resposta do modelo:", message.content[0].text)
 
     # Validate the response using the validator
 
-    score = categories.get(output.lower().strip("'").strip(".").strip(), 0)
+    score = categories.get( message.content[0].text.lower().strip("'").strip(".").strip(), 0)
     return int(score)
+def mapear_campos_disponiveis( texto):
+        """
+        Mapeia os campos disponíveis no texto fornecido
+        """
+        prompt = f"""
+        Extraia do texto a seguir as seguintes informações:
+        - Nome
+        - Vaga que está candidatando
+        - Uma experiência profissional
+        - Sua mais recente formação profissional
+
+        Texto: {texto}
+
+        Responda em formato JSON, preenchendo apenas os campos que encontrar.
+        Se não encontrar um campo, deixe-o como null.
+
+        O Json deve estar nesse formato: 
+            "nome": , 
+            "vaga_candidatura": , 
+            "experiencia_profissional": , 
+            "formacao_profissional":
+        """
+        
+        resposta = json.loads(enviar_prompt_claude(prompt))
+        
+        try:
+            return resposta
+        except:
+            return {}
+        
+
+
+def ExtrairInfos(texto, IsComplete, dados_usuario):
+    if not IsComplete:
+        resultado1 = extrator.processar_usuario(client, dados_usuario)
+    else:
+        resultado1 = extrator.processar_usuario(client, dados_usuario, texto)
+    return resultado1
 
 def validarUsuario(usuario, usuario2):
     print("Usuário 1:", usuario.to_json())
@@ -264,13 +331,24 @@ def validarUsuario(usuario, usuario2):
     """
     
     # Envia a consulta à LLM
-    response = ollama.chat(
-        model='llama3.2',
-        messages=[{'role': 'user', 'content': prompt}]
+    message = client.messages.create(
+    model="claude-3-haiku-20240307",
+    max_tokens=1024,
+    messages=[
+        {"role": "user", "content": prompt}
+    ]
     )
     
+    # Get the model's response
+    # if 'message' in response and 'content' in response['message']:
+    #     output = response['message']['content']
+    # else:
+    #     output = "O modelo não retornou uma resposta válida."
+
+    print("Resposta do modelo:", message.content[0].text)
+    
     # Extrai a resposta do modelo
-    output = response.get('message', {}).get('content', "O modelo não retornou uma resposta válida.")
+    output = message.content[0].text
     
     print("Resposta do modelo:", output)
     # Normaliza a resposta para atualização do score

@@ -1,6 +1,17 @@
 import ollama
+import anthropic
 
-def gerar_pergunta(area, perguntas_anteriores):
+def enviar_prompt_claude(prompt, client):
+    message = client.messages.create(
+    model="claude-3-haiku-20240307",
+    max_tokens=1024,
+    messages=[
+        {"role": "user", "content": prompt}
+    ]
+    )
+    return message.content[0].text
+
+def gerar_pergunta(area, perguntas_anteriores, client):
     # Basta especificar uma área para obter perguntas.
 
     perguntas = ""
@@ -12,17 +23,13 @@ def gerar_pergunta(area, perguntas_anteriores):
      estiverem vazias é por que é a primeira pergunta que você está gerando, gere 1(uma) pergunta, suas perguntas anteriores foram:
               {perguntas}"""
 
-    stream = ollama.chat(
-        model='llama3.2',
-        messages=[{'role': 'user', 'content': prompt}],
-        stream=True,
-    )
-    pergunta = ""
-    for chunk in stream:
-        pergunta += chunk['message']['content']
-    return pergunta.strip()
+    stream = enviar_prompt_claude(prompt, client)
+    # pergunta = ""
+    # for chunk in stream:
+    #     pergunta += chunk
+    return stream.strip()
 
-def avaliar_resposta(pergunta, resposta_usuario):
+def avaliar_resposta(pergunta, resposta_usuario, client):
     # Esse prompt precisa de mais trabalho para ficar melhor. Ainda não está muito bom
     prompt = f"""
     Pergunta: {pergunta}
@@ -30,30 +37,25 @@ def avaliar_resposta(pergunta, resposta_usuario):
     Você é um avaliador de uma empresa fictícia, conduzindo uma avaliação formal frente a frente com um candidato. Sua tarefa é avaliar a resposta do candidato em uma escala de 0 a 100, seguindo estas diretrizes:
 
 Coerência e relevância:
-Se a resposta do candidato não fizer sentido algum, fugir completamente do assunto, ou consistir em palavras/letras aleatórias (exemplo: "asdf", "123xyz"), ou for uma pergunta ou algo irrelevante, você deve atribuir nota 0.
+Se a resposta do candidato não fizer sentido algum, fugir completamente do assunto, ou consistir em palavras/letras aleatórias (exemplo: "asdf", "123xyz"), ou for uma pergunta ou algo irrelevante, você deve atribuir nota 0, é muito importante atribuir a nota 0 nesses casos.
 Erro no conteúdo:
 Caso a resposta esteja errada, mas faça sentido no contexto, atribua uma nota proporcional à qualidade da resposta, sem ser 0.
-Se o usuário responder: pular pergunta, atribua a nota 1, é muito importante atribuir a nota 1 nesse caso de resposta.
+Se o usuário se recusar a responder: se o usuário nao quiser responder, quiser pular a pergunta, e etc. Atribua a nota 1, é muito importante atribuir a nota 1 nesse caso.
 Formato da resposta:
 Forneça a avaliação em duas partes:
-a) Explicação textual: Justifique sua avaliação de forma clara e detalhada.
-b) Nota numérica: Indique a nota atribuída como o único número presente na resposta.
+a) Nota numérica: Indique a nota atribuída como o único número presente na resposta.
+b) Explicação textual: Justifique sua avaliação de forma clara e detalhada.
+
 Exemplo de resposta formatada:
-"Esta resposta contém alguns erros conceituais, mas está alinhada ao contexto da pergunta. Nota: 70."
+Nota: 70.
+"Esta resposta contém alguns erros conceituais, mas está alinhada ao contexto da pergunta. "
 
 Agora, avalie a resposta do candidato seguindo estas instruções.
     """
-    stream = ollama.chat(
-        model='llama3.2',
-        messages=[{'role': 'user', 'content': prompt}],
-        stream=True,
-    )
-    avaliacao = ""
-    for chunk in stream:
-        avaliacao += chunk['message']['content']
+    stream = enviar_prompt_claude(prompt, client)
     
-    print("RESPOSTA LLM: " + avaliacao.strip())
-    return avaliacao.strip()
+    print("RESPOSTA LLM: " + stream.strip())
+    return stream.strip()
 
 # usamos regex para extrair a nota.
 # ainda dá para melhorar isso muito.
