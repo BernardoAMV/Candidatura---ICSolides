@@ -143,6 +143,7 @@ def webhook():
         if not user_model["incomplete"]:
             user_model["dados_usuario"] = service.mapear_campos_disponiveis(incoming_que)
             print(user_model["dados_usuario"])
+        print(user_model["dados_usuario"])
         resposta = service.ExtrairInfos(incoming_que, user_model["incomplete"],user_model["dados_usuario"])
         if(resposta["status"] != "sucesso"):
             bot_resp = MessagingResponse()

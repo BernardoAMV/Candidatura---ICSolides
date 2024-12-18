@@ -85,7 +85,7 @@ class ValidadorUsuario:
 
         Texto: {resposta_usuario}
 
-        Responda em formato JSON válido. Use null para campos não encontrados.
+        Responda em formato JSON válido. Use null para campos não encontrados. Utilize APENAS esses campos para seu JSON, não adicione nenhum outro.
         Exemplo de resposta:
         {{
             "nome": "João Silva",
@@ -139,7 +139,7 @@ class ValidadorUsuario:
             instrucoes.append("- Uma experiência profissional")
         
         if not dados_usuario.get("formacao_profissional"):
-            instrucoes.append("- Formação profissional mais recente")
+            instrucoes.append("- Formação profissional")
         
         return "\n".join(instrucoes)
 

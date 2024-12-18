@@ -308,7 +308,7 @@ def mapear_campos_disponiveis( texto):
 
 def ExtrairInfos(texto, IsComplete, dados_usuario):
     if not IsComplete:
-        resultado1 = extrator.processar_usuario(client, dados_usuario)
+        resultado1 = extrator.processar_usuario(client, dados_usuario, texto)
     else:
         resultado1 = extrator.processar_usuario(client, dados_usuario, texto)
     return resultado1
