@@ -44,7 +44,7 @@ user_model = {
     "cpf":                                 "",
     "controle":                             1,
     "question":                             True,
-    "diretorio":                            "/home/bernardoamv/projects/Pesquisa científica/rep/Candidatura---ICSolides/Registros-",
+    "diretorio":                            "Candidatura---ICSolides/Registros-",
     "incomplete":                           False,
     "dados_usuario":                        {},
 }
