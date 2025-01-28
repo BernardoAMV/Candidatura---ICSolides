@@ -1,4 +1,3 @@
-import ollama
 import anthropic
 
 def enviar_prompt_claude(prompt, client):

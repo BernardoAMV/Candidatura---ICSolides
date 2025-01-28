@@ -1,5 +1,4 @@
 import pandas as pd
-import ollama
 from model.usuario import user
 import re
 import requests

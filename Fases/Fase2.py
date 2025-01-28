@@ -1,4 +1,3 @@
-import ollama
 # import whisper
 import warnings
 
