@@ -1,5 +1,4 @@
 from flask import Flask, request, jsonify
-import ollama
 import Service.service as service
 from model.usuario import user
 from Fases import Fase2
