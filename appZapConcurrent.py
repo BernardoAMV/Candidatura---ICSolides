@@ -149,7 +149,7 @@ def webhook():
             if not session.incomplete:
                 session.dados_usuario = service.mapear_campos_disponiveis(incoming_que)
                 
-            resposta = service.ExtrairInfos(incoming_que, session.incomplete, session.dados_usuario)
+            resposta = service.ExtrairInfos(incoming_que, session.dados_usuario)
             if resposta["status"] != "sucesso":
                 bot_resp = MessagingResponse()
                 msg = bot_resp.message()

@@ -1,3 +1,4 @@
+from langchain_anthropic import ChatAnthropic
 import pandas as pd
 from model.usuario import user
 import re
@@ -19,7 +20,7 @@ client = anthropic.Anthropic(
     # defaults to os.environ.get("ANTHROPIC_API_KEY")
     api_key=API_KEY,
 )
-
+Chatclient = ChatAnthropic(model="claude-3-haiku-20240307", anthropic_api_key=os.getenv("CLAUDE_API_KEY"))
 def enviar_prompt_claude(prompt):
     message = client.messages.create(
     model="claude-3-haiku-20240307",
@@ -234,11 +235,11 @@ def update(usuario):
     return True
 
 
-# Function for the first phase of the interview process
+
 def fase1(usuario):
     
     usuario_json = usuario.to_json()
-    # Construct the prompt for the model
+    
     prompt = f"""
     Aqui estão as informações sobre o candidato:
         {usuario_json}
@@ -247,12 +248,6 @@ def fase1(usuario):
         Sua resposta deve conter apenas: 'não recomendo fortemente', 'não recomendo', 'neutro', 'recomendo' ou 'recomendo fortemente', nada mais.
     """
 
-    # Use Llama to ask the question
-    # response = ollama.chat(
-    #     model='llama3.2',
-    #     messages=[{'role': 'user', 'content': prompt}]
-    # )
-
     message = client.messages.create(
     model="claude-3-haiku-20240307",
     max_tokens=1024,
@@ -260,16 +255,9 @@ def fase1(usuario):
         {"role": "user", "content": prompt}
     ]
     )
-    
-    # Get the model's response
-    # if 'message' in response and 'content' in response['message']:
-    #     output = response['message']['content']
-    # else:
-    #     output = "O modelo não retornou uma resposta válida."
 
     print("Resposta do modelo:", message.content[0].text)
 
-    # Validate the response using the validator
 
     score = categories.get( message.content[0].text.lower().strip("'").strip(".").strip(), 0)
     return int(score)
@@ -305,11 +293,8 @@ def mapear_campos_disponiveis( texto):
         
 
 
-def ExtrairInfos(texto, IsComplete, dados_usuario):
-    if not IsComplete:
-        resultado1 = extrator.processar_usuario(client, dados_usuario, texto)
-    else:
-        resultado1 = extrator.processar_usuario(client, dados_usuario, texto)
+def ExtrairInfos(texto, dados_usuario):
+    resultado1 = extrator.processar_usuario(Chatclient, dados_usuario, texto)
     return resultado1
 
 def validarUsuario(usuario, usuario2):
